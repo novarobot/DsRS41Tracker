@@ -1,7 +1,21 @@
 # DsRS41Tracker
-Linux-based RS41 radiosonde tracking, decoding and SondeHub upload application with a graphical interface. / Linuxos RS41 rádiószonda-követő, dekódoló és SondeHub feltöltő alkalmazás grafikus felülettel.
+Linux-based RS41 radiosonde tracking, decoding and SondeHub upload application with a graphical interface.
+
+Linuxos RS41 rádiószonda-követő, dekódoló és SondeHub feltöltő alkalmazás grafikus felülettel.
 
 ![DsRS41Tracker screenshot](https://github.com/novarobot/DsRS41Tracker/blob/main/sample.png?raw=true)
+
+## Author
+
+**Bálint Juhász**  
+GitHub: `novarobot`  
+callsign: `HA0JSB`
+
+## Szerző
+
+**Juhász Bálint**  
+GitHub: `novarobot`  
+Hívójel: `HA0JSB`
 
 ## Tested hardware and software environment
 
