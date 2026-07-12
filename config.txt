@@ -1,0 +1,58 @@
+# RS41 vevő GUI konfiguráció,
+# Formátum: MEZŐ=érték
+# A # jellel kezdődő sor megjegyzés. hiányzó vagy hibás érték esetén a program a beépített alapértéket használja.
+
+# SondeHUB feltöltő
+#SONDEHUB_TELEMETRY_API_URL=https://api.v2.sondehub.org/sondes/telemetry
+#SONDEHUB_LISTENER_API_URL=https://api.v2.sondehub.org/listeners
+#SONDEHUB_SOFTWARE_NAME=DsRS41Tracker
+#SONDEHUB_SOFTWARE_VERSION=0.1.28
+SONDEHUB_UPLOADER_CALLSIGN=SWL
+#SONDEHUB_MANUFACTURER=Vaisala
+#SONDEHUB_TYPE=RS41
+#SONDEHUB_SUBTYPE=RS41-SGP
+SONDEHUB_RECEIVER=Quansheng UV-K5
+SONDEHUB_RECEIVER_FIRMWARE=IJV 3.60
+SONDEHUB_ANTENNA=kézi botantenna
+SONDEHUB_HTTP_TIMEOUT_S=15
+SONDEHUB_GPS_UTC_OFFSET_S=18
+SONDEHUB_LISTENER_MIN_INTERVAL_S=10
+
+# Bluetooth GPS Bridge
+RFCOMM_DEVICE_NUMBER=0
+RFCOMM_DEVICE_PATH=/dev/rfcomm0
+GPS_SERVICE_NAME=GPS Bridge
+SCAN_TIME_SECONDS=15
+#PREFERRED_DEVICE_MAC=
+
+# Bázisállomás alapértelmezett pozíciója
+BASE_LAT=47.49216
+BASE_LON=19.03733
+BASE_ALT=110
+BASE_ANGLE=0
+
+# Térkép induló helyzet
+MAP_START_LAT=47.49216
+MAP_START_LON=19.03733
+MAP_START_ZOOM=9
+
+# Térképcsempe-szerver A {z}, {x}, {y} helyettesítők kötelezők a szokásos XYZ csempeszerverekhez.
+#TILE_SERVER=https://tile.openstreetmap.org/{z}/{x}/{y}.png
+
+# Térkép kinézet
+BASE_ARROW_COLOR=#42c9ff
+SONDE_ARROW_COLOR=#e3a52b
+TRACK_COLOR=#e3a52b
+TRACK_WIDTH=1
+TRACK_POINT_RADIUS=2
+TRACK_OPACITY=0.9
+
+# Audio bemenet és szűrés
+AUDIO_DEVICE=default
+AUDIO_SAMPLE_RATE=48000
+AUDIO_LF=525
+AUDIO_HF=14000
+AUDIO_ORDER=1
+AUDIO_PEAK=0.75
+AUDIO_DELAY=0.1
+AUDIO_INVERT=1
