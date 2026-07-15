@@ -7,12 +7,13 @@ use utf8;
 use Encode qw(encode_utf8);
 use Getopt::Long qw(GetOptions);
 use HTTP::Tiny;
+use IO::Compress::Gzip qw(gzip $GzipError);
 use IO::Select;
 use JSON::PP qw(decode_json);
 use POSIX qw(strftime);
 use Time::HiRes qw(gettimeofday time);
-use Time::Local qw(timegm);
 use FindBin qw($Bin);
+use File::Path qw(make_path);
 use File::Spec;
 
 binmode STDIN,  ':encoding(UTF-8)';
@@ -50,18 +51,16 @@ sub load_config
 
 					my ($name, $value) = split(/=/, $line, 2);
 
-					next if !defined $name;
-					next if !defined $value;
+					next if !defined $name || !defined $value;
 
-					$name =~ s/^\s+//;
-					$name =~ s/\s+$//;
-
-					$value =~ s/^\s+//;
-					$value =~ s/\s+$//;
+					$name =~ s/^\s+|\s+$//g;
+					$value =~ s/^\s+|\s+$//g;
+					$value =~ s/^"(.*)"$/$1/;
+					$value =~ s/^'(.*)'$/$1/;
 
 					next if $name eq '';
 
-					$CONFIG{$name} = $value;
+					$CONFIG{uc($name)} = $value;
 				}
 
 				close $fh;
@@ -69,35 +68,73 @@ sub load_config
 		}
 	}
 
-	return $CONFIG{$field}
-		if exists $CONFIG{$field};
+	my $key = uc($field // '');
+	return $CONFIG{$key}
+		if exists $CONFIG{$key} && $CONFIG{$key} ne '';
 
 	return $default;
 }
 
-# -----------------------------------------------------------------------------
-# ÁLLOMÁS- ÉS PROGRAMKONFIGURÁCIÓ
-# -----------------------------------------------------------------------------
+sub config_boolean
+{
+	my ($field, $default) = @_;
+	my $value = load_config($field, $default ? '1' : '0');
+
+	return 1 if defined $value && $value =~ /^(?:1|true|yes|on|igen|be)$/i;
+	return 0 if defined $value && $value =~ /^(?:0|false|no|off|nem|ki)$/i;
+	return $default ? 1 : 0;
+}
+
+sub config_number
+{
+	my ($field, $default, $minimum) = @_;
+	my $value = load_config($field, $default);
+
+	return 0 + $default
+		if !defined $value
+		|| $value !~ /^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/;
+
+	my $number = 0 + $value;
+	return 0 + $default if defined $minimum && $number < $minimum;
+	return $number;
+}
 
 my %CFG =
-	(
-		telemetry_api_url =>$ENV{SONDEHUB_API_URL}// load_config('SONDEHUB_TELEMETRY_API_URL','https://api.v2.sondehub.org/sondes/telemetry',),
-		listener_api_url =>$ENV{SONDEHUB_LISTENER_API_URL}// load_config('SONDEHUB_LISTENER_API_URL','https://api.v2.sondehub.org/listeners',),
-		software_name => load_config('SONDEHUB_SOFTWARE_NAME','DsRS41Tracker',),
-		software_version => load_config('SONDEHUB_SOFTWARE_VERSION','0.1.28',),
-		uploader_callsign => load_config('SONDEHUB_UPLOADER_CALLSIGN','SWL',),
-		manufacturer => load_config('SONDEHUB_MANUFACTURER','Vaisala',),
-		type => load_config('SONDEHUB_TYPE','RS41',),
-		subtype => load_config('SONDEHUB_SUBTYPE','RS41-SGP',),
-		receiver => load_config('SONDEHUB_RECEIVER','UNDEFINED',),
-		receiver_firmware => load_config('SONDEHUB_RECEIVER_FIRMWARE','UNDEFINED',),
-		antenna => load_config('SONDEHUB_ANTENNA','UNDEFINED',),
-		http_timeout_s => 0 + load_config('SONDEHUB_HTTP_TIMEOUT_S','15',),
-		gps_utc_offset_s => 0 + load_config('SONDEHUB_GPS_UTC_OFFSET_S','18',),
-		listener_min_interval_s => 0 + load_config('SONDEHUB_LISTENER_MIN_INTERVAL_S','10',),
-	);
-
-# -----------------------------------------------------------------------------
+(
+	telemetry_api_url =>
+		$ENV{SONDEHUB_API_URL}
+		// load_config(
+			'SONDEHUB_TELEMETRY_API_URL',
+			'https://api.v2.sondehub.org/sondes/telemetry',
+		),
+	listener_api_url =>
+		$ENV{SONDEHUB_LISTENER_API_URL}
+		// load_config(
+			'SONDEHUB_LISTENER_API_URL',
+			'https://api.v2.sondehub.org/listeners',
+		),
+	software_name          => load_config('SONDEHUB_SOFTWARE_NAME', 'DsRS41Tracker'),
+	software_version       => load_config('SONDEHUB_SOFTWARE_VERSION', '0.1.31'),
+	uploader_callsign      => load_config('SONDEHUB_UPLOADER_CALLSIGN', 'SWL'),
+	manufacturer           => load_config('SONDEHUB_MANUFACTURER', 'Vaisala'),
+	type                   => load_config('SONDEHUB_TYPE', 'RS41'),
+	subtype                => load_config('SONDEHUB_SUBTYPE', 'RS41-SGP'),
+	receiver               => load_config('SONDEHUB_RECEIVER', 'UNDEFINED'),
+	receiver_firmware      => load_config('SONDEHUB_RECEIVER_FIRMWARE', 'UNDEFINED'),
+	antenna                => load_config('SONDEHUB_ANTENNA', 'UNDEFINED'),
+	http_timeout_s         => config_number('SONDEHUB_HTTP_TIMEOUT_S', 15, 1),
+	telemetry_interval_s   => config_number('SONDEHUB_TELEMETRY_INTERVAL_S', 30, 1),
+	fixed_base_interval_s  => config_number('SONDEHUB_FIXED_BASE_INTERVAL_S', 21600, 30),
+	mobile_base_interval_s => config_number('SONDEHUB_MOBILE_BASE_INTERVAL_S', 600, 30),
+	base_min_interval_s    => config_number('SONDEHUB_BASE_MIN_INTERVAL_S', 30, 30),
+	base_move_distance_m   => config_number('SONDEHUB_BASE_MOVE_DISTANCE_M', 100, 0),
+	gzip_enabled           => config_boolean('SONDEHUB_GZIP_ENABLED', 0),
+	log_directory          => load_config('LOG_DIRECTORY', './log'),
+	default_base_lat       => config_number('BASE_LAT', 47.49786),
+	default_base_lon       => config_number('BASE_LON', 19.04022),
+	default_base_alt       => config_number('BASE_ALT', 110),
+	default_frequency_mhz  => config_number('SONDEHUB_FREQUENCY_MHZ', 400.000, 100),
+);
 
 my $dev_mode = 0;
 my $help = 0;
@@ -131,23 +168,35 @@ my $http = HTTP::Tiny->new
 	verify_SSL => 1,
 );
 
+my $slog_path = create_slog_path();
+my $slog_fh;
+
+if (!open($slog_fh, '>>:encoding(UTF-8)', $slog_path))
+{
+	die "A SondeHUB napló nem nyitható meg: $slog_path: $!\n";
+}
+
+$slog_fh->autoflush(1);
+print STDERR "SondeHUB payload napló: $slog_path\n";
+
 my $selector = IO::Select->new(\*STDIN);
 my $stdin_open = 1;
+my @telemetry_queue;
 my $pending_base;
-my $last_listener_attempt_epoch;
+my $last_telemetry_upload_epoch = time();
+my $last_base_attempt_epoch;
+my $last_base_success_epoch;
+my $last_confirmed_base;
 
-while ($stdin_open || defined $pending_base)
+while ($stdin_open || @telemetry_queue || defined $pending_base)
 {
-	my $timeout;
-	if (defined $pending_base)
-	{
-		$timeout = seconds_until_listener_due();
-	}
-
+	my $timeout = next_timeout_seconds();
 	my @ready = $selector->can_read($timeout);
+
 	if (@ready)
 	{
 		my $line = <STDIN>;
+
 		if (defined $line)
 		{
 			$line =~ s/\r?\n\z//;
@@ -160,10 +209,63 @@ while ($stdin_open || defined $pending_base)
 		}
 	}
 
+	flush_telemetry_if_due(!$stdin_open);
 	upload_pending_base_if_due();
 }
 
+close $slog_fh;
 exit 0;
+
+sub create_slog_path
+{
+	my $requested = $CFG{log_directory};
+	my $directory = File::Spec->rel2abs($requested, $Bin);
+
+	if (!-d $directory)
+	{
+		eval
+		{
+			make_path($directory);
+			1;
+		};
+	}
+
+	if (!-d $directory)
+	{
+		$directory = File::Spec->rel2abs('.', $Bin);
+		print STDERR "FIGYELEM: a megadott logmappa nem használható; naplózás ide: $directory\n";
+	}
+
+	my $filename = 'sondehub_' . strftime('%Y-%m-%d_%H-%M-%S', localtime()) . '.Slog';
+	return File::Spec->catfile($directory, $filename);
+}
+
+sub next_timeout_seconds
+{
+	my @timeouts = (1.0);
+	my $now = time();
+
+	if (@telemetry_queue)
+	{
+		my $remaining = $last_telemetry_upload_epoch
+			+ $CFG{telemetry_interval_s}
+			- $now;
+		push @timeouts, $remaining > 0 ? $remaining : 0;
+	}
+
+	if (defined $pending_base)
+	{
+		push @timeouts, seconds_until_base_due($pending_base);
+	}
+
+	my $minimum = $timeouts[0];
+	for my $value (@timeouts)
+	{
+		$minimum = $value if $value < $minimum;
+	}
+
+	return $minimum < 0 ? 0 : $minimum;
+}
 
 sub process_line
 {
@@ -189,6 +291,7 @@ sub process_line
 	}
 
 	my $message_type = $input->{message_type};
+
 	if (!defined $message_type || ref($message_type))
 	{
 		print_status({}, 'LOCAL VALIDATION ERROR: hiányzó vagy érvénytelen message_type', 'ERR');
@@ -221,9 +324,16 @@ sub process_sonde_input
 		return;
 	}
 
-	my $payload = build_telemetry_payload($input);
-	my $response = put_json($CFG{telemetry_api_url}, [$payload]);
-	print_http_status('TELEMETRY', $payload, $response);
+	push @telemetry_queue, build_telemetry_payload($input);
+	print_status(
+		{},
+		sprintf(
+			'TELEMETRY QUEUED: %d csomag; következő köteg legfeljebb %.0f másodperc múlva',
+			scalar(@telemetry_queue),
+			$CFG{telemetry_interval_s},
+		),
+		'OK',
+	);
 }
 
 sub process_base_input
@@ -239,34 +349,82 @@ sub process_base_input
 
 	$pending_base =
 	{
-		lat    => 0 + $input->{lat},
-		lon    => 0 + $input->{lon},
-		alt    => 0 + $input->{alt},
+		lat    => round_number($input->{lat}, 5),
+		lon    => round_number($input->{lon}, 5),
+		alt    => round_number($input->{alt}, 2),
 		mobile => $input->{mobile} ? JSON::PP::true : JSON::PP::false,
 	};
 
 	upload_pending_base_if_due();
 }
 
-sub seconds_until_listener_due
+sub flush_telemetry_if_due
 {
-	return 0 if !defined $last_listener_attempt_epoch;
+	my ($force) = @_;
+	return if !@telemetry_queue;
 
-	my $due = $last_listener_attempt_epoch + $CFG{listener_min_interval_s};
-	my $remaining = $due - time();
-	return $remaining > 0 ? $remaining : 0;
+	my $now = time();
+	return
+		if !$force
+		&& $now - $last_telemetry_upload_epoch < $CFG{telemetry_interval_s};
+
+	my @batch = @telemetry_queue;
+	@telemetry_queue = ();
+	$last_telemetry_upload_epoch = $now;
+
+	log_payload($_) for @batch;
+
+	if ($dev_mode)
+	{
+		print_status(
+			{},
+			sprintf('TELEMETRY DEV MODE: %d csomag feltöltése kihagyva', scalar(@batch)),
+			'OK',
+		);
+		return;
+	}
+
+	my $response = put_json($CFG{telemetry_api_url}, \@batch);
+	print_http_status('TELEMETRY', { batch_size => scalar(@batch) }, $response);
+}
+
+sub seconds_until_base_due
+{
+	my ($base) = @_;
+	my $now = time();
+
+	if (defined $last_base_attempt_epoch)
+	{
+		my $minimum_due = $last_base_attempt_epoch + $CFG{base_min_interval_s};
+		return $minimum_due - $now if $minimum_due > $now;
+	}
+
+	return 0 if !defined $last_base_success_epoch || !defined $last_confirmed_base;
+
+	my $normal_interval = $base->{mobile}
+		? $CFG{mobile_base_interval_s}
+		: $CFG{fixed_base_interval_s};
+
+	my $normal_due = $last_base_success_epoch + $normal_interval;
+	my $distance = base_distance_m($last_confirmed_base, $base);
+
+	return 0 if $distance >= $CFG{base_move_distance_m};
+	return $normal_due - $now if $normal_due > $now;
+	return 0;
 }
 
 sub upload_pending_base_if_due
 {
 	return if !defined $pending_base;
-	return if seconds_until_listener_due() > 0;
+	return if seconds_until_base_due($pending_base) > 0;
 
 	my $base = $pending_base;
 	$pending_base = undef;
-	$last_listener_attempt_epoch = time();
+	$last_base_attempt_epoch = time();
 
 	my $payload = build_listener_payload($base);
+	log_payload($payload);
+
 	if ($dev_mode)
 	{
 		print_status($payload, 'LISTENER DEV MODE: feltöltés kihagyva', 'OK');
@@ -274,7 +432,23 @@ sub upload_pending_base_if_due
 	}
 
 	my $response = put_json($CFG{listener_api_url}, $payload);
-	print_http_status('LISTENER', $payload, $response);
+	my $success = print_http_status('LISTENER', $payload, $response);
+
+	if ($success)
+	{
+		$last_base_success_epoch = time();
+		$last_confirmed_base =
+		{
+			lat    => $base->{lat},
+			lon    => $base->{lon},
+			alt    => $base->{alt},
+			mobile => $base->{mobile},
+		};
+	}
+	else
+	{
+		$pending_base = $base if !defined $pending_base;
+	}
 }
 
 sub put_json
@@ -282,21 +456,41 @@ sub put_json
 	my ($url, $payload) = @_;
 	my $wire_json = $json->encode($payload);
 	my $wire_bytes = encode_utf8($wire_json);
-	my $response;
+	my %headers =
+	(
+		'Accept'       => 'text/plain',
+		'Content-Type' => 'application/json; charset=utf-8',
+		'Date'         => http_date_utc(),
+		'User-Agent'   => "$CFG{software_name}/$CFG{software_version}",
+	);
 
+	if ($CFG{gzip_enabled})
+	{
+		my $compressed = '';
+		my $ok = gzip(\$wire_bytes => \$compressed);
+
+		if (!$ok)
+		{
+			return
+			{
+				request_ok => 0,
+				response   => undef,
+				error      => "GZIP tömörítési hiba: $GzipError",
+			};
+		}
+
+		$wire_bytes = $compressed;
+		$headers{'Content-Encoding'} = 'gzip';
+	}
+
+	my $response;
 	my $request_ok = eval
 	{
 		$response = $http->put
 		(
 			$url,
 			{
-				headers =>
-				{
-					'Accept'       => 'text/plain',
-					'Content-Type' => 'application/json; charset=utf-8',
-					'Date'         => http_date_utc(),
-					'User-Agent'   => "$CFG{software_name}/$CFG{software_version}",
-				},
+				headers => \%headers,
 				content => $wire_bytes,
 			}
 		);
@@ -307,7 +501,9 @@ sub put_json
 	{
 		request_ok => $request_ok ? 1 : 0,
 		response   => $response,
-		error      => $request_ok ? '' : clean_text($@ || 'ismeretlen HTTP klienshiba'),
+		error      => $request_ok
+			? ''
+			: clean_text($@ || 'ismeretlen HTTP klienshiba'),
 	};
 }
 
@@ -318,7 +514,7 @@ sub print_http_status
 	if (!$result->{request_ok})
 	{
 		print_status($payload, "$kind LOCAL HTTP ERROR: $result->{error}", 'ERR');
-		return;
+		return 0;
 	}
 
 	my $response = $result->{response};
@@ -332,8 +528,15 @@ sub print_http_status
 			: '',
 	);
 
-	my $status = $response->{success} ? 'OK' : 'ERR';
-	print_status($payload, "$kind $http_text", $status);
+	my $success = $response->{success} ? 1 : 0;
+	print_status($payload, "$kind $http_text", $success ? 'OK' : 'ERR');
+	return $success;
+}
+
+sub log_payload
+{
+	my ($payload) = @_;
+	print {$slog_fh} $json->encode($payload) . "\n";
 }
 
 sub build_listener_payload
@@ -347,9 +550,9 @@ sub build_listener_payload
 		uploader_callsign => $CFG{uploader_callsign},
 		uploader_position =>
 		[
-			0 + $input->{lat},
-			0 + $input->{lon},
-			0 + $input->{alt},
+			round_number($input->{lat}, 5),
+			round_number($input->{lon}, 5),
+			round_number($input->{alt}, 2),
 		],
 		uploader_radio   => "$CFG{receiver}; firmware: $CFG{receiver_firmware}",
 		uploader_antenna => $CFG{antenna},
@@ -371,20 +574,25 @@ sub build_telemetry_payload
 		type              => $CFG{type},
 		subtype           => $CFG{subtype},
 		serial            => $input->{serial},
-		frame             => 0 + $input->{frame},
-		datetime          => gps_datetime_to_utc($input->{datetime}),
-		lat               => 0 + $input->{lat},
-		lon               => 0 + $input->{lon},
-		alt               => 0 + $input->{alt},
-		frequency         => 0 + $input->{frequency},
-		temp              => 0 + $input->{temp},
-		humidity          => 0 + $input->{humidity},
-		pressure          => 0 + $input->{pressure},
-		vel_h             => 0 + $input->{vel_h},
-		vel_v             => 0 + $input->{vel_v},
-		heading           => 0 + $input->{heading},
-		sats              => 0 + $input->{sats},
-		batt              => 0 + $input->{batt},
+		frame             => int($input->{frame}),
+		datetime          => $input->{datetime},
+		lat               => round_number($input->{lat}, 5),
+		lon               => round_number($input->{lon}, 5),
+		alt               => round_number($input->{alt}, 2),
+		frequency         => round_number(
+			defined($input->{frequency})
+				? $input->{frequency}
+				: $CFG{default_frequency_mhz},
+			3,
+		),
+		temp              => round_number($input->{temp}, 2),
+		humidity          => round_number($input->{humidity}, 2),
+		pressure          => round_number($input->{pressure}, 2),
+		vel_h             => round_number($input->{vel_h}, 2),
+		vel_v             => round_number($input->{vel_v}, 2),
+		heading           => round_number($input->{heading}, 2),
+		sats              => int($input->{sats}),
+		batt              => round_number($input->{batt}, 2),
 		uploader_antenna  => join
 		(
 			'; ',
@@ -398,9 +606,9 @@ sub build_telemetry_payload
 	{
 		$payload->{uploader_position} =
 		[
-			0 + $input->{uploader_position}[0],
-			0 + $input->{uploader_position}[1],
-			0 + $input->{uploader_position}[2],
+			round_number($input->{uploader_position}[0], 5),
+			round_number($input->{uploader_position}[1], 5),
+			round_number($input->{uploader_position}[2], 2),
 		];
 	}
 
@@ -410,6 +618,34 @@ sub build_telemetry_payload
 	}
 
 	return $payload;
+}
+
+sub round_number
+{
+	my ($value, $digits) = @_;
+	my $factor = 10 ** $digits;
+	my $number = 0 + $value;
+
+	return int($number * $factor + ($number < 0 ? -0.5 : 0.5)) / $factor;
+}
+
+sub base_distance_m
+{
+	my ($first, $second) = @_;
+	my $earth_radius = 6371008.8;
+	my $pi = 4 * atan2(1, 1);
+
+	my $lat1 = $first->{lat} * $pi / 180;
+	my $lat2 = $second->{lat} * $pi / 180;
+	my $dlat = ($second->{lat} - $first->{lat}) * $pi / 180;
+	my $dlon = ($second->{lon} - $first->{lon}) * $pi / 180;
+
+	my $a = sin($dlat / 2) ** 2
+		+ cos($lat1) * cos($lat2) * sin($dlon / 2) ** 2;
+	$a = 0 if $a < 0;
+	$a = 1 if $a > 1;
+
+	return $earth_radius * 2 * atan2(sqrt($a), sqrt(1 - $a));
 }
 
 sub validate_sonde_input
@@ -425,7 +661,6 @@ sub validate_sonde_input
 		lat
 		lon
 		alt
-		frequency
 		temp
 		humidity
 		pressure
@@ -436,7 +671,8 @@ sub validate_sonde_input
 		batt
 	);
 
-	my %allowed = map { $_ => 1 } (@required, 'uploader_position');
+	my %allowed = map { $_ => 1 } (@required, 'frequency', 'uploader_position');
+
 	for my $key (sort keys %{$input})
 	{
 		return (0, "nem engedélyezett szonda mező: $key") if !$allowed{$key};
@@ -458,9 +694,14 @@ sub validate_sonde_input
 		if ref($input->{datetime})
 		|| $input->{datetime} !~ /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 
-	for my $key (qw(frame lat lon alt frequency temp humidity pressure vel_h vel_v heading sats batt))
+	for my $key (qw(frame lat lon alt temp humidity pressure vel_h vel_v heading sats batt))
 	{
 		return (0, "$key nem szám") if !is_finite_number($input->{$key});
+	}
+
+	if (exists($input->{frequency}) && defined($input->{frequency}))
+	{
+		return (0, 'frequency nem szám') if !is_finite_number($input->{frequency});
 	}
 
 	if (exists($input->{uploader_position}))
@@ -497,7 +738,9 @@ sub validate_sonde_input
 		if $input->{lon} < -180 || $input->{lon} > 180;
 
 	return (0, 'frequency MHz-ben adandó meg, ésszerű tartománya 100..2000 MHz')
-		if $input->{frequency} < 100 || $input->{frequency} > 2000;
+		if exists($input->{frequency})
+		&& defined($input->{frequency})
+		&& ($input->{frequency} < 100 || $input->{frequency} > 2000);
 
 	return (0, 'humidity tartománya 0..100 százalék')
 		if $input->{humidity} < 0 || $input->{humidity} > 100;
@@ -563,21 +806,6 @@ sub is_finite_number
 	return 1;
 }
 
-sub gps_datetime_to_utc
-{
-	my ($value) = @_;
-	return $value
-		if $value !~ /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d+)?Z$/;
-
-	my ($year, $month, $day, $hour, $minute, $second, $fraction) =
-		($1, $2, $3, $4, $5, $6, defined($7) ? $7 : '');
-
-	my $epoch = timegm($second, $minute, $hour, $day, $month - 1, $year);
-	$epoch -= $CFG{gps_utc_offset_s};
-
-	return strftime('%Y-%m-%dT%H:%M:%S', gmtime($epoch)) . $fraction . 'Z';
-}
-
 sub iso8601_now_utc
 {
 	my ($seconds, $microseconds) = gettimeofday();
@@ -628,15 +856,13 @@ Szonda telemetria:
   {"message_type":"sonde", ...}
 
 Bázis/listener pozíció:
-  {"message_type":"base","lat":47.5,"lon":19.1,"alt":200,"mobile":false}
+  {"message_type":"base","lat":47.49786,"lon":19.04022,"alt":110,"mobile":false}
 
-A szonda JSON kizárólag a /sondes/telemetry végpontra kerül.
-A bázis JSON kizárólag a /listeners végpontra kerül.
+A telemetria konfigurálható időközönként kötegelt JSON tömbként kerül feltöltésre.
+A bázisfeltöltés időzítését a feltöltő kezeli a sikeresen visszaigazolt utolsó
+pozíció, a fix/mobil időköz, a minimális időköz és a mozgási küszöb alapján.
 
-A bázisfeltöltések között legalább listener_min_interval_s másodperc telik el.
-Ha közben több bázis JSON érkezik, csak a legutolsó érvényes marad sorban.
-
-  --dev               A szondacsomagot dev módban küldi; a bázisfeltöltést kihagyja.
+  --dev               A hálózati feltöltéseket kihagyja, a payloadokat naplózza.
   --protocol-version  Kiírja a GUI-protokoll verzióját, majd kilép.
   --help              Súgó.
 USAGE

@@ -1,43 +1,86 @@
-# RS41 vevő GUI konfiguráció,
+# RS41 vevő GUI konfiguráció
 # Formátum: MEZŐ=érték
-# A # jellel kezdődő sor megjegyzés. hiányzó vagy hibás érték esetén a program a beépített alapértéket használja.
+# A # jellel kezdődő sor megjegyzés.
+# Hiányzó vagy hibás érték esetén a program a beépített alapértéket használja.
 
+# -----------------------------------------------------------------------------
 # SondeHUB feltöltő
-#SONDEHUB_TELEMETRY_API_URL=https://api.v2.sondehub.org/sondes/telemetry
-#SONDEHUB_LISTENER_API_URL=https://api.v2.sondehub.org/listeners
-#SONDEHUB_SOFTWARE_NAME=DsRS41Tracker
-#SONDEHUB_SOFTWARE_VERSION=0.1.28
+# -----------------------------------------------------------------------------
+
+# A hivatalos SondeHUB API végpontok. Helyi teszthez például:
+#SONDEHUB_TELEMETRY_API_URL=http://127.0.0.1:8080/sondes/telemetry
+#SONDEHUB_LISTENER_API_URL=http://127.0.0.1:8080/listeners
+SONDEHUB_TELEMETRY_API_URL=https://api.v2.sondehub.org/sondes/telemetry
+SONDEHUB_LISTENER_API_URL=https://api.v2.sondehub.org/listeners
+
+SONDEHUB_SOFTWARE_NAME=DsRS41Tracker
+SONDEHUB_SOFTWARE_VERSION=0.1.31
 SONDEHUB_UPLOADER_CALLSIGN=SWL
-#SONDEHUB_MANUFACTURER=Vaisala
-#SONDEHUB_TYPE=RS41
-#SONDEHUB_SUBTYPE=RS41-SGP
+SONDEHUB_MANUFACTURER=Vaisala
+SONDEHUB_TYPE=RS41
+SONDEHUB_SUBTYPE=RS41-SGP
 SONDEHUB_RECEIVER=Quansheng UV-K5
 SONDEHUB_RECEIVER_FIRMWARE=IJV 3.60
 SONDEHUB_ANTENNA=kézi botantenna
 SONDEHUB_HTTP_TIMEOUT_S=15
-SONDEHUB_GPS_UTC_OFFSET_S=18
-SONDEHUB_LISTENER_MIN_INTERVAL_S=10
 
+# A GUI-ban megadható vételi/feltöltési frekvencia MHz-ben.
+# Ha a GUI mező üres vagy az uploader bemenetéből hiányzik, ez az érték érvényes.
+SONDEHUB_FREQUENCY_MHZ=403.700
+
+# Szondacsomagok kötegelt feltöltése másodpercben.
+SONDEHUB_TELEMETRY_INTERVAL_S=30
+
+# Fix bázis normál frissítése: 6 óra.
+SONDEHUB_FIXED_BASE_INTERVAL_S=21600
+
+# Mobil bázis normál frissítése: 10 perc.
+SONDEHUB_MOBILE_BASE_INTERVAL_S=600
+
+# Két bázisfeltöltési kísérlet között mindig legalább 30 másodperc telik el.
+SONDEHUB_BASE_MIN_INTERVAL_S=30
+
+# Az utolsó, SondeHUB által sikeresen visszaigazolt pozícióhoz képest ekkora
+# elmozdulás után esedékes az azonnali frissítés, a minimális időköz betartásával.
+SONDEHUB_BASE_MOVE_DISTANCE_M=100
+
+# HTTP request body GZIP tömörítése. 0=kikapcsolva, 1=bekapcsolva.
+SONDEHUB_GZIP_ENABLED=1
+
+# WAV, Rlog, Jlog és Slog alapértelmezett könyvtára.
+# Ha nem létezik, a feltöltő megpróbálja létrehozni.
+# Ha ez sikertelen, a program saját könyvtárát használja.
+LOG_DIRECTORY=./log
+
+# -----------------------------------------------------------------------------
 # Bluetooth GPS Bridge
+# -----------------------------------------------------------------------------
+
 RFCOMM_DEVICE_NUMBER=0
 RFCOMM_DEVICE_PATH=/dev/rfcomm0
 GPS_SERVICE_NAME=GPS Bridge
 SCAN_TIME_SECONDS=15
 #PREFERRED_DEVICE_MAC=
 
+# -----------------------------------------------------------------------------
 # Bázisállomás alapértelmezett pozíciója
-BASE_LAT=47.49216
-BASE_LON=19.03733
+# -----------------------------------------------------------------------------
+
+BASE_LAT=47.49786
+BASE_LON=19.04022
 BASE_ALT=110
 BASE_ANGLE=0
 
+# -----------------------------------------------------------------------------
 # Térkép induló helyzet
-MAP_START_LAT=47.49216
-MAP_START_LON=19.03733
+# -----------------------------------------------------------------------------
+
+MAP_START_LAT=47.49786
+MAP_START_LON=19.04022
 MAP_START_ZOOM=9
 
-# Térképcsempe-szerver A {z}, {x}, {y} helyettesítők kötelezők a szokásos XYZ csempeszerverekhez.
-#TILE_SERVER=https://tile.openstreetmap.org/{z}/{x}/{y}.png
+# Térképcsempe-szerver. A {z}, {x}, {y} helyettesítők kötelezők.
+TILE_SERVER=https://tile.openstreetmap.org/{z}/{x}/{y}.png
 
 # Térkép kinézet
 BASE_ARROW_COLOR=#42c9ff
@@ -47,7 +90,10 @@ TRACK_WIDTH=1
 TRACK_POINT_RADIUS=2
 TRACK_OPACITY=0.9
 
+# -----------------------------------------------------------------------------
 # Audio bemenet és szűrés
+# -----------------------------------------------------------------------------
+
 AUDIO_DEVICE=default
 AUDIO_SAMPLE_RATE=48000
 AUDIO_LF=525

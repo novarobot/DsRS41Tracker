@@ -22,11 +22,11 @@ use Gtk3::WebKit2;
 
 $| = 1;
 
-my $APP_TITLE = 'RS41 vevő GUI v0.1.28';
+my $APP_TITLE = 'RS41 vevő GUI v0.1.31';
 my $configfile = File::Spec->catfile($Bin, 'config.txt');
 my %config_cache;
 my $config_loaded = 0;
-my $BASE_SHARE_INTERVAL_S = 30;
+my $BASE_SHARE_INTERVAL_S = 5;
 my $BT_UI_INTERVAL_MS = 250;
 my @decoder_candidates = (
 	File::Spec->catfile($Bin, 'rs41_raw_decode_fixed_fields.pl'),
@@ -43,7 +43,9 @@ my @sondehub_candidates = (
 );
 my ($sondehub_path) = grep { -f $_ } @sondehub_candidates;
 $sondehub_path //= $sondehub_candidates[0];
-my $work_dir = File::Spec->rel2abs('.');
+my $configured_log_dir = load_config('LOG_DIRECTORY', './log');
+my $work_dir = File::Spec->rel2abs($configured_log_dir, $Bin);
+$work_dir = File::Spec->rel2abs('.', $Bin) if !-d $work_dir;
 
 my $processor_pid;
 my $processor_out;
@@ -240,14 +242,22 @@ sub build_base_bar
 	$bar->set_border_width(3);
 
 	$bar->pack_start(Gtk3::Label->new('Bázis:'), FALSE, FALSE, 2);
-	add_labeled_entry($bar, 'Szélesség', 'base_lat', load_config('BASE_LAT', '47.49216'), 10);
-	add_labeled_entry($bar, 'Hosszúság', 'base_lon', load_config('BASE_LON', '19.03733'), 10);
+	add_labeled_entry($bar, 'Szélesség', 'base_lat', load_config('BASE_LAT', '47.49786'), 10);
+	add_labeled_entry($bar, 'Hosszúság', 'base_lon', load_config('BASE_LON', '19.04022'), 10);
 	add_labeled_entry($bar, 'Magasság', 'base_alt', load_config('BASE_ALT', '110'), 8);
 	add_labeled_entry($bar, 'Szög', 'base_angle', load_config('BASE_ANGLE', '0'), 7);
 
 	my $apply = Gtk3::Button->new_with_label('Alkalmaz');
 	$apply->signal_connect(clicked => sub { update_base_marker(); });
 	$bar->pack_start($apply, FALSE, FALSE, 4);
+
+	add_labeled_entry(
+		$bar,
+		'Frekvencia MHz',
+		'frequency',
+		load_config('SONDEHUB_FREQUENCY_MHZ', '400.000'),
+		8,
+	);
 
 	$share_check = Gtk3::CheckButton->new_with_label('Megosztás');
 	$share_check->set_active(FALSE);
@@ -279,7 +289,6 @@ sub build_base_bar
 	$mobile_check->set_tooltip_text('Bekapcsolva mobil chase-car, kikapcsolva fix állomásként küldi a bázist.');
 	$mobile_check->signal_connect(toggled => sub
 	{
-		$last_base_share_epoch = undef;
 		append_prc(
 			$mobile_check->get_active()
 				? "Bázistípus: mobil.\n"
@@ -996,9 +1005,11 @@ sub send_sonde_to_sondehub
 	return if ref($data->{ptu}) ne 'HASH' || !$data->{ptu}{calibration_ready};
 	return if ref($data->{position}) ne 'HASH';
 	return if ref($data->{gps_time}) ne 'HASH';
-	return if ref($data->{configuration}) ne 'HASH';
 
-	my $frequency_khz = $data->{configuration}{frequency_khz};
+	my $frequency = numeric_or_null($entry{frequency}->get_text());
+	$frequency = config_number('SONDEHUB_FREQUENCY_MHZ', 400.000)
+		if !defined $frequency;
+
 	my %payload =
 	(
 		message_type => 'sonde',
@@ -1008,7 +1019,7 @@ sub send_sonde_to_sondehub
 		lat => $data->{position}{latitude_deg},
 		lon => $data->{position}{longitude_deg},
 		alt => $data->{position}{altitude_m},
-		frequency => defined $frequency_khz ? $frequency_khz / 1000.0 : undef,
+		frequency => $frequency,
 		temp => $data->{ptu}{temperature_c},
 		humidity => $data->{ptu}{relative_humidity_pct},
 		pressure => $data->{ptu}{pressure_hpa},
@@ -1357,6 +1368,18 @@ sub validate_numeric_entries
 		my $value = $entry{$name}->get_text();
 		die "Érvénytelen numerikus mező: $name=$value\n"
 			if $value !~ /^-?(?:\d+(?:\.\d*)?|\.\d+)$/;
+	}
+
+	my $frequency = $entry{frequency}->get_text();
+	$frequency =~ s/^\s+|\s+$//g;
+
+	if ($frequency ne '')
+	{
+		die "Érvénytelen frekvencia MHz-ben: $frequency\n"
+			if $frequency !~ /^(?:\d+(?:\.\d*)?|\.\d+)$/;
+
+		die "A frekvencia ésszerű tartománya 100..2000 MHz.\n"
+			if $frequency < 100 || $frequency > 2000;
 	}
 }
 
@@ -2473,8 +2496,8 @@ HTML
 	my $sonde_arrow_color = config_color('SONDE_ARROW_COLOR', '#e3a52b');
 	my $track_color = config_color('TRACK_COLOR', '#e3a52b');
 	my $tile_server = load_config('TILE_SERVER', 'https://tile.openstreetmap.org/{z}/{x}/{y}.png');
-	my $map_start_lat = config_number('MAP_START_LAT', 47.53764);
-	my $map_start_lon = config_number('MAP_START_LON', 19.18884);
+	my $map_start_lat = config_number('MAP_START_LAT', 47.49786);
+	my $map_start_lon = config_number('MAP_START_LON', 19.04022);
 	my $map_start_zoom = config_number('MAP_START_ZOOM', 9);
 	my $track_width = config_number('TRACK_WIDTH', 4);
 	my $track_opacity = config_number('TRACK_OPACITY', 0.9);
