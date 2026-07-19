@@ -8,10 +8,10 @@
 # -----------------------------------------------------------------------------
 
 # A hivatalos SondeHUB API végpontok. Helyi teszthez például:
-#SONDEHUB_TELEMETRY_API_URL=http://127.0.0.1:8080/sondes/telemetry
-#SONDEHUB_LISTENER_API_URL=http://127.0.0.1:8080/listeners
-SONDEHUB_TELEMETRY_API_URL=https://api.v2.sondehub.org/sondes/telemetry
-SONDEHUB_LISTENER_API_URL=https://api.v2.sondehub.org/listeners
+SONDEHUB_TELEMETRY_API_URL=http://127.0.0.1:8080/sondes/telemetry
+SONDEHUB_LISTENER_API_URL=http://127.0.0.1:8080/listeners
+#SONDEHUB_TELEMETRY_API_URL=https://api.v2.sondehub.org/sondes/telemetry
+#SONDEHUB_LISTENER_API_URL=https://api.v2.sondehub.org/listeners
 
 SONDEHUB_SOFTWARE_NAME=DsRS41Tracker
 SONDEHUB_SOFTWARE_VERSION=0.1.31
@@ -35,7 +35,7 @@ SONDEHUB_TELEMETRY_INTERVAL_S=30
 SONDEHUB_FIXED_BASE_INTERVAL_S=21600
 
 # Mobil bázis normál frissítése: 10 perc.
-SONDEHUB_MOBILE_BASE_INTERVAL_S=600
+SONDEHUB_MOBILE_BASE_INTERVAL_S=60
 
 # Két bázisfeltöltési kísérlet között mindig legalább 30 másodperc telik el.
 SONDEHUB_BASE_MIN_INTERVAL_S=30
@@ -45,7 +45,7 @@ SONDEHUB_BASE_MIN_INTERVAL_S=30
 SONDEHUB_BASE_MOVE_DISTANCE_M=100
 
 # HTTP request body GZIP tömörítése. 0=kikapcsolva, 1=bekapcsolva.
-SONDEHUB_GZIP_ENABLED=1
+SONDEHUB_GZIP_ENABLED=0
 
 # WAV, Rlog, Jlog és Slog alapértelmezett könyvtára.
 # Ha nem létezik, a feltöltő megpróbálja létrehozni.

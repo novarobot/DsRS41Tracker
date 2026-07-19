@@ -26,7 +26,7 @@ my $APP_TITLE = 'RS41 vevő GUI v0.1.31';
 my $configfile = File::Spec->catfile($Bin, 'config.txt');
 my %config_cache;
 my $config_loaded = 0;
-my $BASE_SHARE_INTERVAL_S = 5;
+my $BASE_SHARE_INTERVAL_S = 15;
 my $BT_UI_INTERVAL_MS = 250;
 my @decoder_candidates = (
 	File::Spec->catfile($Bin, 'rs41_raw_decode_fixed_fields.pl'),
