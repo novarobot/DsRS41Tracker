@@ -1,10 +1,10 @@
 # DsRS41Tracker
 
 ### English / Angol
-Linux-based RS41 radiosonde tracking, decoding and SondeHub upload application that processes an audio source, is also compatible with the Quansheng / IJV 3.60 radio, and provides both graphical and console interfaces.
+Linux-based RS41 radiosonde tracking, decoding and SondeHub upload application that processes an audio source, is also compatible with the Quansheng / IJV 3.60 radio, and provides both graphical and console interfaces, as well as script-based launch options.
 
 ### Magyar / Hungarian
-Hang forrásból dolgozó Quansheng / IJV 3.60 rádióval (is) kompatibilis Linuxos RS41 rádiószonda-követő, dekódoló és SondeHub feltöltő alkalmazás grafikus és konzolos felülettel.
+Hang forrásból dolgozó Quansheng / IJV 3.60 rádióval (is) kompatibilis Linuxos RS41 rádiószonda-követő, dekódoló és SondeHub feltöltő alkalmazás grafikus, és konzolos felülettel, valamint script indítási lehetőségekkel.
 
 ## GUI
 ![DsRS41Tracker screenshot](https://github.com/novarobot/DsRS41Tracker/blob/main/sampleGUI.png?raw=true)
