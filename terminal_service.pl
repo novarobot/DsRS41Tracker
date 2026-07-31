@@ -162,16 +162,16 @@ my $restore = sub
 	system('stty', 'sane') if $terminal_active;
 };
 
-$SIG{INT} = sub { $restore->(); exit(0); };
-$SIG{TERM} = sub { $restore->(); exit(0); };
-$SIG{HUP} = sub { $restore->(); exit(0); };
+my $running = 1;
+
+$SIG{INT} = sub { $running = 0; };
+$SIG{TERM} = sub { $running = 0; };
+$SIG{HUP} = sub { $running = 0; };
 
 my $selector = IO::Select->new(
 	\*STDIN,
 	$data_reader
 );
-
-my $running = 1;
 
 while ($running)
 {
@@ -189,7 +189,7 @@ while ($running)
 
 			my $offset = 0;
 
-			while ($offset < length($chunk))
+			while ($running && $offset < length($chunk))
 			{
 				my $written = syswrite(
 					$target,

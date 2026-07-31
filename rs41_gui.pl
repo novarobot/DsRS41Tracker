@@ -109,6 +109,49 @@ sub valid_pipeconnect_id
 	return 1;
 }
 
+sub stop_child_process
+{
+	my($pid)=@_;
+
+	return if !defined($pid) || $pid<=0;
+
+	kill('TERM',$pid);
+	waitpid($pid,POSIX::WNOHANG());
+
+	return;
+}
+
+sub close_gui_service
+{
+	my($service,$reset_toggle)=@_;
+	my $state=delete($gui_service{$service});
+
+	return 0 if ref($state) ne 'HASH';
+
+	for my $handle_name(qw(control_writer control_reader))
+	{
+		my $handle=$state->{$handle_name};
+		close($handle) if defined($handle);
+	}
+
+	for my $pid_name(qw(control_writer_pid control_reader_pid terminal_pid))
+	{
+		stop_child_process($state->{$pid_name});
+	}
+
+	if($reset_toggle && defined($GTK))
+	{
+		set_toggle(
+			$service eq 'bt'
+				?'bt_button'
+				:'sondehub_button',
+			0
+		);
+	}
+
+	return 1;
+}
+
 sub open_gui_control_reader
 {
 	my($service)=@_;
@@ -128,10 +171,21 @@ sub open_gui_control_reader
 	close($input);
 
 	my $id=<$output>;
-	return 0 if !defined($id);
+
+	if(!defined($id))
+	{
+		stop_child_process($pid);
+		return 0;
+	}
 
 	$id=~s/[\r\n]+\z//;
-	return 0 if !valid_pipeconnect_id($id);
+
+	if(!valid_pipeconnect_id($id))
+	{
+		close($output);
+		stop_child_process($pid);
+		return 0;
+	}
 
 	my $flags=fcntl($output,F_GETFL,0);
 	fcntl($output,F_SETFL,$flags|O_NONBLOCK)
@@ -260,7 +314,7 @@ sub start_gui_service
 
 	if(!launch_service_terminal($service,$control_id))
 	{
-		delete($gui_service{$service});
+		close_gui_service($service,1);
 		return 0;
 	}
 
@@ -313,6 +367,38 @@ sub poll_gui_service_controls
 				next;
 			}
 
+			if(defined($count)&&$count==0)
+			{
+				close_gui_service($service,1);
+
+				send_main(
+					{
+						type=>$service eq 'bt'
+							?'bt_stop_requested'
+							:'sondehub_stop_requested',
+						source=>'gui_terminal_exit'
+					}
+				);
+
+				last;
+			}
+
+			last if !defined($count)
+				&& ($!{EAGAIN} || $!{EWOULDBLOCK});
+
+			next if !defined($count) && $!{EINTR};
+
+			close_gui_service($service,1);
+
+			send_main(
+				{
+					type=>$service eq 'bt'
+						?'bt_stop_requested'
+						:'sondehub_stop_requested',
+					source=>'gui_control_error'
+				}
+			);
+
 			last;
 		}
 	}
@@ -329,10 +415,15 @@ sub complete_gui_service
 
 	return 0 if ref($state) ne 'HASH';
 	return 0 if !valid_pipeconnect_id($main_receive_id);
-	return 0 if !open_gui_control_writer(
+
+	if(!open_gui_control_writer(
 		$service,
 		$state->{terminal_control_receive_id}
-	);
+	))
+	{
+		close_gui_service($service,1);
+		return 0;
+	}
 
 	my $raw=$json->encode(
 		{
@@ -341,7 +432,12 @@ sub complete_gui_service
 		}
 	)."\n";
 
-	print {$state->{control_writer}} $raw;
+	if(!print {$state->{control_writer}} $raw)
+	{
+		close_gui_service($service,1);
+		return 0;
+	}
+
 	return 1;
 }
 
@@ -353,6 +449,8 @@ sub terminal_message
 
 sub on_main_window_destroy
 {
+	close_gui_service($_,0) for qw(bt sondehub);
+
 	terminal_message('INFO','A főablak bezárult.');
 	send_main({type=>'window_close_requested'});
 	dsPGtkGUI->quit_main_loop();
@@ -927,13 +1025,16 @@ sub dispatch
 	elsif($t eq 'bt_state')
 	{
 		set_toggle('bt_button',$m->{active});
+		close_gui_service('bt',0) if !$m->{active};
 	}
 	elsif($t eq 'sondehub_state')
 	{
 		set_toggle('sondehub_button',$m->{active});
+		close_gui_service('sondehub',0) if !$m->{active};
 	}
 	elsif($t eq 'shutdown')
 	{
+		close_gui_service($_,0) for qw(bt sondehub);
 		dsPGtkGUI->quit_main_loop();
 	}
 }
@@ -1010,6 +1111,8 @@ Glib::Timeout->add
 );
 
 dsPGtkGUI->run_main_loop();
+
+close_gui_service($_,0) for qw(bt sondehub);
 
 terminal_message('INFO','A GUI-folyamat leáll.');
 
