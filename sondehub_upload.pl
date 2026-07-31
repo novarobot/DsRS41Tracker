@@ -30,6 +30,11 @@ my $CONFIG_LOADED = 0;
 sub load_config
 {
 	my ($field, $default) = @_;
+	my $environment_name = uc($field // '');
+
+	# Prioritás: launcher ENV > config.txt > beépített érték.
+	return $ENV{$environment_name}
+		if exists($ENV{$environment_name});
 
 	if (!$CONFIG_LOADED)
 	{
@@ -114,7 +119,7 @@ my %CFG =
 			'https://api.v2.sondehub.org/listeners',
 		),
 	software_name          => load_config('SONDEHUB_SOFTWARE_NAME', 'DsRS41Tracker'),
-	software_version       => load_config('SONDEHUB_SOFTWARE_VERSION', '0.1.31'),
+	software_version       => load_config('SONDEHUB_SOFTWARE_VERSION', '0.2.46'),
 	uploader_callsign      => load_config('SONDEHUB_UPLOADER_CALLSIGN', 'SWL'),
 	manufacturer           => load_config('SONDEHUB_MANUFACTURER', 'Vaisala'),
 	type                   => load_config('SONDEHUB_TYPE', 'RS41'),
@@ -129,6 +134,8 @@ my %CFG =
 	base_min_interval_s    => config_number('SONDEHUB_BASE_MIN_INTERVAL_S', 30, 30),
 	base_move_distance_m   => config_number('SONDEHUB_BASE_MOVE_DISTANCE_M', 100, 0),
 	gzip_enabled           => config_boolean('SONDEHUB_GZIP_ENABLED', 0),
+	share_enabled          => config_boolean('SONDEHUB_SHARE', 0),
+	mobile_enabled         => config_boolean('SONDEHUB_MOBIL', 0),
 	log_directory          => load_config('LOG_DIRECTORY', './log'),
 	default_base_lat       => config_number('BASE_LAT', 47.49786),
 	default_base_lon       => config_number('BASE_LON', 19.04022),
@@ -137,12 +144,14 @@ my %CFG =
 );
 
 my $dev_mode = 0;
+my $slog_enabled = 0;
 my $help = 0;
 my $protocol_version = 0;
 
 GetOptions
 (
 	'dev'              => \$dev_mode,
+	'V|slog'           => \$slog_enabled,
 	'help'             => \$help,
 	'protocol-version' => \$protocol_version,
 )
@@ -168,21 +177,31 @@ my $http = HTTP::Tiny->new
 	verify_SSL => 1,
 );
 
-my $slog_path = create_slog_path();
+my $slog_path;
 my $slog_fh;
 
-if (!open($slog_fh, '>>:encoding(UTF-8)', $slog_path))
+if ($slog_enabled)
 {
-	die "A SondeHUB napló nem nyitható meg: $slog_path: $!\n";
-}
+	$slog_path = create_slog_path();
 
-$slog_fh->autoflush(1);
-print STDERR "SondeHUB payload napló: $slog_path\n";
+	if (!open($slog_fh, '>>:encoding(UTF-8)', $slog_path))
+	{
+		die "A SondeHUB napló nem nyitható meg: $slog_path: $!\n";
+	}
+
+	$slog_fh->autoflush(1);
+	print STDERR "SondeHUB payload napló: $slog_path\n";
+}
+else
+{
+	print STDERR "SondeHUB payload naplózás kikapcsolva. Engedélyezés: -V\n";
+}
 
 my $selector = IO::Select->new(\*STDIN);
 my $stdin_open = 1;
 my @telemetry_queue;
 my $pending_base;
+my $latest_base;
 my $last_telemetry_upload_epoch = time();
 my $last_base_attempt_epoch;
 my $last_base_success_epoch;
@@ -213,7 +232,7 @@ while ($stdin_open || @telemetry_queue || defined $pending_base)
 	upload_pending_base_if_due();
 }
 
-close $slog_fh;
+close($slog_fh) if defined($slog_fh);
 exit 0;
 
 sub create_slog_path
@@ -324,7 +343,16 @@ sub process_sonde_input
 		return;
 	}
 
-	push @telemetry_queue, build_telemetry_payload($input);
+	my $share = exists($input->{share})
+		? ($input->{share} ? 1 : 0)
+		: $CFG{share_enabled};
+
+	my $mobile = exists($input->{mobile})
+		? ($input->{mobile} ? 1 : 0)
+		: $CFG{mobile_enabled};
+
+	push @telemetry_queue,
+		build_telemetry_payload($input, $share, $mobile);
 	print_status(
 		{},
 		sprintf(
@@ -347,12 +375,27 @@ sub process_base_input
 		return;
 	}
 
-	$pending_base =
+	my $share = exists($input->{share})
+		? ($input->{share} ? 1 : 0)
+		: $CFG{share_enabled};
+
+	return if !$share;
+
+	my $mobile = exists($input->{mobile})
+		? ($input->{mobile} ? 1 : 0)
+		: $CFG{mobile_enabled};
+
+	$latest_base =
 	{
 		lat    => round_number($input->{lat}, 5),
 		lon    => round_number($input->{lon}, 5),
 		alt    => round_number($input->{alt}, 2),
-		mobile => $input->{mobile} ? JSON::PP::true : JSON::PP::false,
+		mobile => $mobile ? JSON::PP::true : JSON::PP::false,
+	};
+
+	$pending_base =
+	{
+		%{$latest_base}
 	};
 
 	upload_pending_base_if_due();
@@ -413,6 +456,34 @@ sub seconds_until_base_due
 	return 0;
 }
 
+sub confirm_base_upload
+{
+	my ($base) = @_;
+
+	$last_base_success_epoch = time();
+	$last_confirmed_base =
+	{
+		lat    => $base->{lat},
+		lon    => $base->{lon},
+		alt    => $base->{alt},
+		mobile => $base->{mobile},
+	};
+
+	# Valódi periodikus listener-frissítés: sikeres küldés után a
+	# legutolsó ismert bázispozíciót újra várakozó állapotba tesszük.
+	# A seconds_until_base_due() a fix/mobil normál időközt, a
+	# mozgási küszöböt és a minimális időközt egyaránt alkalmazza.
+	if ($stdin_open && ref($latest_base) eq 'HASH')
+	{
+		$pending_base =
+		{
+			%{$latest_base}
+		};
+	}
+
+	return;
+}
+
 sub upload_pending_base_if_due
 {
 	return if !defined $pending_base;
@@ -428,6 +499,7 @@ sub upload_pending_base_if_due
 	if ($dev_mode)
 	{
 		print_status($payload, 'LISTENER DEV MODE: feltöltés kihagyva', 'OK');
+		confirm_base_upload($base);
 		return;
 	}
 
@@ -436,14 +508,7 @@ sub upload_pending_base_if_due
 
 	if ($success)
 	{
-		$last_base_success_epoch = time();
-		$last_confirmed_base =
-		{
-			lat    => $base->{lat},
-			lon    => $base->{lon},
-			alt    => $base->{alt},
-			mobile => $base->{mobile},
-		};
+		confirm_base_upload($base);
 	}
 	else
 	{
@@ -530,12 +595,17 @@ sub print_http_status
 
 	my $success = $response->{success} ? 1 : 0;
 	print_status($payload, "$kind $http_text", $success ? 'OK' : 'ERR');
+
 	return $success;
 }
 
 sub log_payload
 {
 	my ($payload) = @_;
+
+	return if !$slog_enabled;
+	return if !defined($slog_fh);
+
 	print {$slog_fh} $json->encode($payload) . "\n";
 }
 
@@ -562,7 +632,7 @@ sub build_listener_payload
 
 sub build_telemetry_payload
 {
-	my ($input) = @_;
+	my ($input, $share, $mobile) = @_;
 
 	my $payload =
 	{
@@ -602,7 +672,7 @@ sub build_telemetry_payload
 		),
 	};
 
-	if (exists($input->{uploader_position}))
+	if ($share && exists($input->{uploader_position}))
 	{
 		$payload->{uploader_position} =
 		[
@@ -671,7 +741,7 @@ sub validate_sonde_input
 		batt
 	);
 
-	my %allowed = map { $_ => 1 } (@required, 'frequency', 'uploader_position');
+	my %allowed = map { $_ => 1 } (@required, 'frequency', 'uploader_position', 'share', 'mobile');
 
 	for my $key (sort keys %{$input})
 	{
@@ -702,6 +772,15 @@ sub validate_sonde_input
 	if (exists($input->{frequency}) && defined($input->{frequency}))
 	{
 		return (0, 'frequency nem szám') if !is_finite_number($input->{frequency});
+	}
+
+	for my $key (qw(share mobile))
+	{
+		if (exists($input->{$key}))
+		{
+			return (0, "$key csak JSON boolean lehet")
+				if !JSON::PP::is_bool($input->{$key});
+		}
 	}
 
 	if (exists($input->{uploader_position}))
@@ -760,8 +839,8 @@ sub validate_sonde_input
 sub validate_base_input
 {
 	my ($input) = @_;
-	my @required = qw(message_type lat lon alt mobile);
-	my %allowed = map { $_ => 1 } @required;
+	my @required = qw(message_type lat lon alt);
+	my %allowed = map { $_ => 1 } (@required, 'share', 'mobile');
 
 	for my $key (sort keys %{$input})
 	{
@@ -788,8 +867,14 @@ sub validate_base_input
 	return (0, 'lon tartománya -180..180 fok')
 		if $input->{lon} < -180 || $input->{lon} > 180;
 
-	return (0, 'mobile csak JSON boolean lehet')
-		if !JSON::PP::is_bool($input->{mobile});
+	for my $key (qw(share mobile))
+	{
+		if (exists($input->{$key}))
+		{
+			return (0, "$key csak JSON boolean lehet")
+				if !JSON::PP::is_bool($input->{$key});
+		}
+	}
 
 	return (1, '');
 }
@@ -848,7 +933,7 @@ sub usage
 
 	print STDERR <<'USAGE';
 Használat:
-  ./sondehub_upload.pl [--dev]
+  ./sondehub_upload.pl [-V] [--dev]
 
 A program soronként kétféle JSON objektumot olvas STDIN-ről.
 
@@ -862,7 +947,10 @@ A telemetria konfigurálható időközönként kötegelt JSON tömbként kerül 
 A bázisfeltöltés időzítését a feltöltő kezeli a sikeresen visszaigazolt utolsó
 pozíció, a fix/mobil időköz, a minimális időköz és a mozgási küszöb alapján.
 
-  --dev               A hálózati feltöltéseket kihagyja, a payloadokat naplózza.
+  -V, --slog          Időbélyeges SondeHub .Slog payloadnapló készítése.
+                      Alapértelmezésben nincs Slog fájl.
+  --dev               A hálózati feltöltéseket kihagyja.
+                      Payloadfájl csak a -V kapcsolóval készül.
   --protocol-version  Kiírja a GUI-protokoll verzióját, majd kilép.
   --help              Súgó.
 USAGE

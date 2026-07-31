@@ -3,102 +3,296 @@
 # A # jellel kezdődő sor megjegyzés.
 # Hiányzó vagy hibás érték esetén a program a beépített alapértéket használja.
 
+# A teljes DsRS41Tracker alkalmazás verziója.
+DSRS41TRACKER_VERSION=0.2.46
+
+# DsRS41Tracker teljes konfiguráció
+# Formátum: MEZŐ=érték
+#
+# Szabály:
+# - Az aktív, nem kommentelt sorok a jelenlegi config.txt-ben az alapértéktől eltérő értékeket őrzik meg.
+# - A beépített alapértékkel azonos vagy korábban hiányzó beállítások kommentelve szerepelnek.
+# - Egy kommentelt beállítás aktiválásához töröld a sor elejéről a # jelet.
+# - Ismeretlen vagy hibás értéknél az adott program a saját beépített alapértékét használhatja.
+
 # -----------------------------------------------------------------------------
-# SondeHUB feltöltő
+# SondeHub API és azonosítás
 # -----------------------------------------------------------------------------
 
 # A hivatalos SondeHUB API végpontok. Helyi teszthez például:
-#SONDEHUB_TELEMETRY_API_URL=http://127.0.0.1:8080/sondes/telemetry
-#SONDEHUB_LISTENER_API_URL=http://127.0.0.1:8080/listeners
-SONDEHUB_TELEMETRY_API_URL=https://api.v2.sondehub.org/sondes/telemetry
-SONDEHUB_LISTENER_API_URL=https://api.v2.sondehub.org/listeners
+# A szondatelemetria HTTP PUT végpontja. A SONDEHUB_API_URL környezeti változó felülírhatja.
+SONDEHUB_TELEMETRY_API_URL=http://127.0.0.1:8080/sondes/telemetry
+#SONDEHUB_TELEMETRY_API_URL=https://api.v2.sondehub.org/sondes/telemetry
 
-SONDEHUB_SOFTWARE_NAME=DsRS41Tracker
-SONDEHUB_SOFTWARE_VERSION=0.1.31
-SONDEHUB_UPLOADER_CALLSIGN=SWL
-SONDEHUB_MANUFACTURER=Vaisala
-SONDEHUB_TYPE=RS41
-SONDEHUB_SUBTYPE=RS41-SGP
+# A vevő/listener adatok HTTP PUT végpontja. A SONDEHUB_LISTENER_API_URL környezeti változó felülírhatja.
+SONDEHUB_LISTENER_API_URL=http://127.0.0.1:8080/listeners
+#SONDEHUB_LISTENER_API_URL=https://api.v2.sondehub.org/listeners
+
+
+# A SondeHub felé jelentett szoftvernév.
+#SONDEHUB_SOFTWARE_NAME=DsRS41Tracker
+
+# A SondeHub felé jelentett szoftververzió.
+SONDEHUB_SOFTWARE_VERSION=0.2.46
+
+# A feltöltő állomás hívójele vagy azonosítója.
+#SONDEHUB_UPLOADER_CALLSIGN=SWL
+
+# A rádiószonda gyártója.
+#SONDEHUB_MANUFACTURER=Vaisala
+
+# A rádiószonda fő típusa.
+#SONDEHUB_TYPE=RS41
+
+# A rádiószonda altípusa.
+#SONDEHUB_SUBTYPE=RS41-SGP
+
+# A használt rádióvevő megnevezése.
 SONDEHUB_RECEIVER=Quansheng UV-K5
-SONDEHUB_RECEIVER_FIRMWARE=IJV 3.60
-SONDEHUB_ANTENNA=kézi botantenna
-SONDEHUB_HTTP_TIMEOUT_S=15
 
-# A GUI-ban megadható vételi/feltöltési frekvencia MHz-ben.
-# Ha a GUI mező üres vagy az uploader bemenetéből hiányzik, ez az érték érvényes.
+# A rádióvevő firmware-ének megnevezése.
+SONDEHUB_RECEIVER_FIRMWARE=IJV 3.60
+
+# A használt antenna leírása.
+SONDEHUB_ANTENNA=kézi botantenna
+
+# -----------------------------------------------------------------------------
+# SondeHub időzítés és hálózat
+# -----------------------------------------------------------------------------
+
+# A saját bázispozíció megosztása a SondeHub felé: 0=kikapcsolva, 1=bekapcsolva.
+# Bekapcsolva a telemetriához uploader_position kerül, és listener/base üzenet is készül.
+SONDEHUB_SHARE=1
+
+# A megosztott bázis mobil állomásként kezelése: 0=fix, 1=mobil.
+# Csak SONDEHUB_SHARE=1 mellett van hatása.
+#SONDEHUB_MOBIL=0
+
+# HTTP-kérések időkorlátja másodpercben; minimum 1.
+#SONDEHUB_HTTP_TIMEOUT_S=15
+
+# Alapértelmezett vételi/feltöltési frekvencia MHz-ben; minimum 100.
 SONDEHUB_FREQUENCY_MHZ=403.700
 
-# Szondacsomagok kötegelt feltöltése másodpercben.
+# A telemetriacsomagok kötegelt feltöltési időköze másodpercben; minimum 1.
 SONDEHUB_TELEMETRY_INTERVAL_S=30
 
-# Fix bázis normál frissítése: 6 óra.
-SONDEHUB_FIXED_BASE_INTERVAL_S=21600
+# Fix bázis normál listener-frissítési időköze másodpercben; minimum 30.
+#SONDEHUB_FIXED_BASE_INTERVAL_S=21600
 
-# Mobil bázis normál frissítése: 10 perc.
+# Mobil bázis normál listener-frissítési időköze másodpercben; minimum 30.
 SONDEHUB_MOBILE_BASE_INTERVAL_S=60
 
-# Két bázisfeltöltési kísérlet között mindig legalább 30 másodperc telik el.
+# Két bázisfeltöltési kísérlet minimális időköze másodpercben; minimum 30.
 SONDEHUB_BASE_MIN_INTERVAL_S=30
 
-# Az utolsó, SondeHUB által sikeresen visszaigazolt pozícióhoz képest ekkora
-# elmozdulás után esedékes az azonnali frissítés, a minimális időköz betartásával.
+# Ekkora elmozdulás után esedékes soron kívüli bázisfrissítés méterben; minimum 0.
 SONDEHUB_BASE_MOVE_DISTANCE_M=100
 
-# HTTP request body GZIP tömörítése. 0=kikapcsolva, 1=bekapcsolva.
-SONDEHUB_GZIP_ENABLED=0
+# HTTP request body GZIP tömörítése: 0=kikapcsolva, 1=bekapcsolva.
+#SONDEHUB_GZIP_ENABLED=0
 
-# WAV, Rlog, Jlog és Slog alapértelmezett könyvtára.
-# Ha nem létezik, a feltöltő megpróbálja létrehozni.
-# Ha ez sikertelen, a program saját könyvtárát használja.
-LOG_DIRECTORY=./log
+# -----------------------------------------------------------------------------
+# Naplózás
+# -----------------------------------------------------------------------------
+
+# A WAV, Rlog, Jlog és SondeHub Slog fájlok alapértelmezett könyvtára.
+#LOG_DIRECTORY=./log
 
 # -----------------------------------------------------------------------------
 # Bluetooth GPS Bridge
 # -----------------------------------------------------------------------------
 
-RFCOMM_DEVICE_NUMBER=0
-RFCOMM_DEVICE_PATH=/dev/rfcomm0
-GPS_SERVICE_NAME=GPS Bridge
-SCAN_TIME_SECONDS=15
+# A Bluetooth RFCOMM eszköz sorszáma.
+#RFCOMM_DEVICE_NUMBER=0
+
+# A létrehozott RFCOMM karakteres eszköz elérési útja.
+#RFCOMM_DEVICE_PATH=/dev/rfcomm0
+
+# Az Android GPS Bridge SDP szolgáltatásának neve.
+#GPS_SERVICE_NAME=GPS Bridge
+
+# Bluetooth eszközkeresés időtartama másodpercben.
+#SCAN_TIME_SECONDS=15
+
+# Előnyben részesített Bluetooth-eszköz MAC-címe; üresen interaktív kiválasztás.
 #PREFERRED_DEVICE_MAC=
 
 # -----------------------------------------------------------------------------
-# Bázisállomás alapértelmezett pozíciója
+# Bázisállomás
 # -----------------------------------------------------------------------------
 
-BASE_LAT=47.49786
-BASE_LON=19.04022
-BASE_ALT=110
-BASE_ANGLE=0
+# A bázisállomás alapértelmezett WGS84 szélessége fokban.
+#BASE_LAT=47.49786
+
+# A bázisállomás alapértelmezett WGS84 hosszúsága fokban.
+#BASE_LON=19.04022
+
+# A bázisállomás alapértelmezett magassága méterben.
+#BASE_ALT=110
+
+# A bázisállomás vagy telefon alapértelmezett irányszöge fokban.
+#BASE_ANGLE=0
 
 # -----------------------------------------------------------------------------
-# Térkép induló helyzet
+# Térkép
 # -----------------------------------------------------------------------------
 
-MAP_START_LAT=47.49786
-MAP_START_LON=19.04022
-MAP_START_ZOOM=9
+# A térkép induló középpontjának szélessége fokban.
+#MAP_START_LAT=47.49786
 
-# Térképcsempe-szerver. A {z}, {x}, {y} helyettesítők kötelezők.
-TILE_SERVER=https://tile.openstreetmap.org/{z}/{x}/{y}.png
+# A térkép induló középpontjának hosszúsága fokban.
+#MAP_START_LON=19.04022
 
-# Térkép kinézet
-BASE_ARROW_COLOR=#42c9ff
-SONDE_ARROW_COLOR=#e3a52b
-TRACK_COLOR=#e3a52b
+# A térkép induló nagyítási szintje.
+#MAP_START_ZOOM=9
+
+# A térképcsempe-szerver URL-sablonja; a {z}, {x} és {y} helyettesítők szükségesek.
+#TILE_SERVER=https://tile.openstreetmap.org/{z}/{x}/{y}.png
+
+# A bázis iránynyilának CSS színe, hatjegyű hex formában.
+#BASE_ARROW_COLOR=#42c9ff
+
+# A szonda iránynyilának CSS színe, hatjegyű hex formában.
+#SONDE_ARROW_COLOR=#e3a52b
+
+# A szondanyomvonal CSS színe, hatjegyű hex formában.
+#TRACK_COLOR=#e3a52b
+
+# A szondanyomvonal szélessége képpontban.
 TRACK_WIDTH=1
+
+# A nyomvonalpontok sugara képpontban.
 TRACK_POINT_RADIUS=2
-TRACK_OPACITY=0.9
+
+# A szondanyomvonal átlátszatlansága 0 és 1 között.
+#TRACK_OPACITY=0.9
+
 
 # -----------------------------------------------------------------------------
-# Audio bemenet és szűrés
+# Feldolgozási PIPE parancssablonok
+# -----------------------------------------------------------------------------
+#
+# A MAIN a négy feldolgozási módhoz külön shell parancssablont használ.
+# Ha valamelyik kulcs hiányzik, üres vagy kommentelt, a MAIN a korábbi,
+# programba épített alapértelmezett parancsot használja.
+#
+# Használható helyettesítők:
+#
+# {AUDIO_DEVICE}       shell-biztos ALSA/hangeszköz
+# {AUDIO_SAMPLE_RATE}  mintavételi frekvencia
+# {AUDIO_LF}           alsó vágási frekvencia
+# {AUDIO_HF}           felső vágási frekvencia
+# {AUDIO_ORDER}        szűrőrend
+# {AUDIO_PEAK}         AGC célcsúcs
+# {AUDIO_DELAY}        szűrőblokk/késleltetés
+# {AUDIO_INVERT_ARG}   -i vagy üres
+# {FILTER}             rs41_filter_stream.py útvonala
+# {FILTER_COMMAND}     csak a szűrőprogram parancsa
+# {FILTER_ARGS}        az aktuális szűrőargumentumok
+# {RS41_MOD}           rs41_mod útvonala
+# {MOD_COMMAND}        csak a modulátor/dekóder program parancsa
+# {MOD_ARGS}           az aktuális rs41_mod argumentumok
+# {DECODER}            RAW dekóder útvonala
+# {PIPE_DELAY}         pipe_delay.pl útvonala
+# {INPUT_FILE}         WAV/RAW/JSON bemeneti fájl
+# {WAV_FILE}           élő WAV napló útvonala
+# {WAV_LOG_PIPE}       WAV_LOG_ENABLED=1 esetén `| tee -- {WAV_FILE}`, különben üres
+# {RLOG_FILE}          élő RAW napló
+# {JLOG_FILE}          élő JSON napló
+# {PERL}               aktuális Perl értelmező
+# {PROJECT_DIR}        projektkönyvtár
+#
+# Élő felvétel dekódoló pipeline.
+# Jelenlegi FILTER_COMMAND: ./rs41_filter_stream.py
+# Jelenlegi FILTER_ARGS: -LF {AUDIO_LF} -HF {AUDIO_HF} -O {AUDIO_ORDER} -P {AUDIO_PEAK} -D {AUDIO_DELAY} -V
+# Jelenlegi MOD_COMMAND: ./rs41_mod
+# Jelenlegi MOD_ARGS: -vv -r {AUDIO_INVERT_ARG} /dev/stdin
+PIPE_RECORD=arecord -D {AUDIO_DEVICE} -t wav -f S16_LE -r {AUDIO_SAMPLE_RATE} -c 1 -q | {FILTER_COMMAND} {FILTER_ARGS} | {MOD_COMMAND} {MOD_ARGS} | tee -a {RLOG_FILE} | {DECODER} --json | tee -a {JLOG_FILE}
+
+# WAV-fájl feldolgozása.
+# Jelenlegi FILTER_COMMAND: ./rs41_filter_stream.py
+# Jelenlegi FILTER_ARGS: -LF {AUDIO_LF} -HF {AUDIO_HF} -O {AUDIO_ORDER} -P {AUDIO_PEAK} -D {AUDIO_DELAY} -V
+# Jelenlegi MOD_COMMAND: ./rs41_mod
+# Jelenlegi MOD_ARGS: -vv -r {AUDIO_INVERT_ARG} /dev/stdin
+PIPE_WAV=sox -- {INPUT_FILE} -t wav -b 16 -e signed-integer -c 1 -r {AUDIO_SAMPLE_RATE} - | {FILTER_COMMAND} {FILTER_ARGS} | {MOD_COMMAND} {MOD_ARGS} | {DECODER} --json
+
+# Demodulátor-választás:
+# - A jelenlegi alapértelmezés {MOD_COMMAND} {MOD_ARGS}, vagyis ./rs41_mod.
+# - Ha a PIPE_RECORD/PIPE_WAV sor hiányzik vagy kommentelt, a MAIN szintén
+#   a beépített ./rs41_mod + dinamikus MOD_ARGS parancsot használja.
+# - A Python változathoz a megfelelő pipeline-rész legyen:
+#     | ./rs41_mod.py |
+#   Az rs41_mod.py nem igényli a {MOD_ARGS} argumentumokat, és az invertált
+#   illetve nem invertált jelet automatikusan felismeri.
+
+
+# RAW-fájl dekódolása.
+# FILTER_COMMAND/FILTER_ARGS: ebben a módban nincs használva.
+# MOD_COMMAND/MOD_ARGS: ebben a módban nincs használva.
+PIPE_RAW=cat -- {INPUT_FILE} | {DECODER} --json | {PIPE_DELAY}
+
+# JSON-fájl visszajátszása.
+# FILTER_COMMAND/FILTER_ARGS: ebben a módban nincs használva.
+# MOD_COMMAND/MOD_ARGS: ebben a módban nincs használva.
+PIPE_JSON=cat -- {INPUT_FILE} | {PIPE_DELAY}
+
+# Az élő felvétel WAV-naplója: 0=kikapcsolva, 1=bekapcsolva.
+# Ha a bejegyzés hiányzik, üres vagy kommentelt, az alapérték 1.
+#WAV_LOG_ENABLED=1
+
+# Az élő vétel külön WAV-mentő és helyi monitorozó ága.
+# A {WAV_LOG_PIPE} WAV_LOG_ENABLED=1 esetén a tee WAV-ág, különben üres.
+# BSD/Hurd portnál ezt kell az adott hangrendszer parancsára cserélni.
+RECORD_MONITOR_COMMAND=arecord -D {AUDIO_DEVICE} -t wav -f S16_LE -r {AUDIO_SAMPLE_RATE} -c 1 -q - {WAV_LOG_PIPE} | aplay -q
+
+# -----------------------------------------------------------------------------
+# BT és SondeHub worker indítás
+# -----------------------------------------------------------------------------
+#
+# A MAIN ezeket általános POSIX fork/pipe/setsid/exec mechanizmussal,
+# `sh -c` parancsként indítja.
+#
+# Használható helyettesítők:
+#
+# {PERL}
+# {WORKER}
+# {BT_WORKER}
+# {SONDEHUB_WORKER}
+# {PIPE_CONNECT}
+# {PROJECT_DIR}
+#
+# Linuxon a Bluetooth worker PTY-ját a util-linux `script` biztosítja.
+# BSD/Hurd rendszeren ez a sor az adott rendszer PTY-wrapperére cserélhető.
+BT_WORKER_COMMAND=script -qefc "exec {PERL} {BT_WORKER} 2>&1" /dev/null
+
+# A SondeHub worker nem igényel PTY-t.
+SONDEHUB_WORKER_COMMAND=exec {PERL} {SONDEHUB_WORKER} 2>&1
+
+# -----------------------------------------------------------------------------
+# Audio és demoduláció
 # -----------------------------------------------------------------------------
 
-AUDIO_DEVICE=default
-AUDIO_SAMPLE_RATE=48000
-AUDIO_LF=525
-AUDIO_HF=14000
-AUDIO_ORDER=1
-AUDIO_PEAK=0.75
-AUDIO_DELAY=0.1
-AUDIO_INVERT=1
+# Az ALSA hangbemeneti eszköz neve.
+#AUDIO_DEVICE=default
+
+# A hang mintavételi frekvenciája Hz-ben.
+#AUDIO_SAMPLE_RATE=48000
+
+# A Python magasáteresztő szűrő alsó vágási frekvenciája Hz-ben.
+#AUDIO_LF=525
+
+# A Python aluláteresztő szűrő felső vágási frekvenciája Hz-ben.
+#AUDIO_HF=14000
+
+# A Butterworth szűrő rendje.
+#AUDIO_ORDER=1
+
+# Az automatikus erősítés célcsúcsszintje 0 és 1 között.
+#AUDIO_PEAK=0.75
+
+# A feldolgozási blokk hozzávetőleges időtartama másodpercben; a Python szűrő minimuma 0,1.
+#AUDIO_DELAY=0.1
+
+# Az rs41_mod bemeneti polaritásának invertálása: 0=kikapcsolva, 1=bekapcsolva.
+#AUDIO_INVERT=1

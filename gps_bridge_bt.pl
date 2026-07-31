@@ -4,10 +4,8 @@ use strict;
 use warnings;
 use utf8;
 
-use Cwd qw(abs_path);
-use File::Temp qw(tempdir);
 use IO::Handle;
-use POSIX qw(mkfifo WNOHANG);
+use POSIX qw(WNOHANG);
 use Time::HiRes qw(sleep);
 use FindBin qw($Bin);
 use File::Spec;
@@ -79,8 +77,6 @@ my $GPS_SERVICE_NAME = load_config( 'GPS_SERVICE_NAME', 'GPS Bridge', );
 my $SCAN_TIME_SECONDS = 0 + load_config( 'SCAN_TIME_SECONDS', '15', );
 my $PREFERRED_DEVICE_MAC = load_config( 'PREFERRED_DEVICE_MAC', '', );
 
-my $is_worker = 0;
-my $fifo_handle;
 my $rfcomm_handle;
 my $rfcomm_pid;
 my $cleanup_started = 0;
@@ -182,19 +178,8 @@ sub terminal_message
 	print "$message\n";
 }
 
-sub send_json_to_parent
-{
-	my ($json_line) = @_;
-
-	return if !defined($fifo_handle);
-
-	print {$fifo_handle} $json_line;
-	$fifo_handle->flush();
-}
-
 sub cleanup_worker
 {
-	return if !$is_worker;
 	return if $cleanup_started;
 
 	$cleanup_started = 1;
@@ -261,11 +246,6 @@ sub cleanup_worker
 	print "RFCOMM kapcsolat lezárva.\n";
 	print "A laptop Bluetooth-adaptere kikapcsolva.\n";
 
-	if (defined($fifo_handle))
-	{
-		close($fifo_handle);
-		undef($fifo_handle);
-	}
 }
 
 sub install_signal_handlers
@@ -299,150 +279,6 @@ sub install_signal_handlers
 		cleanup_worker();
 		exit(0);
 	};
-}
-
-sub launch_terminal
-{
-	my ($script_path, $fifo) = @_;
-
-	if (command_exists('gnome-terminal'))
-	{
-		return run_command(
-			'gnome-terminal',
-			'--title=GPS Bridge Bluetooth',
-			'--',
-			$^X,
-			$script_path,
-			'--worker',
-			$fifo
-		);
-	}
-
-	if (command_exists('mate-terminal'))
-	{
-		return run_command(
-			'mate-terminal',
-			'--title=GPS Bridge Bluetooth',
-			'--',
-			$^X,
-			$script_path,
-			'--worker',
-			$fifo
-		);
-	}
-
-	if (command_exists('xfce4-terminal'))
-	{
-		return run_command(
-			'xfce4-terminal',
-			'--title=GPS Bridge Bluetooth',
-			'--command',
-			join(
-				' ',
-				map
-				{
-					my $value = $_;
-					$value =~ s/'/'"'"'/g;
-					"'$value'"
-				}
-				(
-					$^X,
-					$script_path,
-					'--worker',
-					$fifo
-				)
-			)
-		);
-	}
-
-	if (command_exists('konsole'))
-	{
-		return run_command(
-			'konsole',
-			'--title',
-			'GPS Bridge Bluetooth',
-			'-e',
-			$^X,
-			$script_path,
-			'--worker',
-			$fifo
-		);
-	}
-
-	if (command_exists('xterm'))
-	{
-		return run_command(
-			'xterm',
-			'-T',
-			'GPS Bridge Bluetooth',
-			'-e',
-			$^X,
-			$script_path,
-			'--worker',
-			$fifo
-		);
-	}
-
-	die(
-		"Nem található támogatott terminál.\n" .
-		"Telepítsd például a gnome-terminal vagy xterm csomagot.\n"
-	);
-}
-
-sub parent_main
-{
-	my $script_path = abs_path($0);
-
-	if (!defined($script_path))
-	{
-		die "Nem határozható meg a script teljes elérési útja.\n";
-	}
-
-	my $temporary_directory =
-		tempdir(
-			'gps-bridge-bt-XXXXXX',
-			TMPDIR  => 1,
-			CLEANUP => 0
-		);
-
-	my $fifo = "$temporary_directory/json.fifo";
-
-	if (!mkfifo($fifo, 0600))
-	{
-		die "Nem hozható létre a FIFO: $fifo: $!\n";
-	}
-
-	my $terminal_result =
-		launch_terminal(
-			$script_path,
-			$fifo
-		);
-
-	if ($terminal_result != 0)
-	{
-		unlink($fifo);
-		rmdir($temporary_directory);
-
-		die "Nem sikerült elindítani az új terminált.\n";
-	}
-
-	open(
-		my $reader,
-		'<:encoding(UTF-8)',
-		$fifo
-	) or die "Nem nyitható meg a FIFO: $fifo: $!\n";
-
-	while (my $line = <$reader>)
-	{
-		print STDOUT $line;
-	}
-
-	close($reader);
-
-	unlink($fifo);
-	rmdir($temporary_directory);
-
-	return 0;
 }
 
 sub ensure_required_commands
@@ -1100,7 +936,6 @@ sub stream_json
 		next if $line !~ /\S/;
 
 		print $line;
-		send_json_to_parent($line);
 	}
 
 	die "Az RFCOMM adatkapcsolat megszakadt.\n";
@@ -1108,20 +943,8 @@ sub stream_json
 
 sub worker_main
 {
-	my ($fifo) = @_;
-
-	$is_worker = 1;
-
 	install_signal_handlers();
 	ensure_required_commands();
-
-	open(
-		$fifo_handle,
-		'>:encoding(UTF-8)',
-		$fifo
-	) or die "Nem nyitható meg a FIFO írásra: $fifo: $!\n";
-
-	$fifo_handle->autoflush(1);
 
 	terminal_message('GPS Bridge Bluetooth kliens');
 	terminal_message('================================');
@@ -1157,16 +980,9 @@ END
 	cleanup_worker();
 }
 
-if (
-	@ARGV >= 2 &&
-	$ARGV[0] eq '--worker'
-)
+if (@ARGV)
 {
-	exit(
-		worker_main(
-			$ARGV[1]
-		)
-	);
+	die "A gps_bridge_bt.pl nem fogad parancssori kapcsolókat.\n";
 }
 
-exit(parent_main());
+exit(worker_main());

@@ -680,6 +680,7 @@ sub get_rh_advanced
 	my $rh = $rh0 * vapor_saturation_pressure($th) / vapor_saturation_pressure($t);
 	$rh = 0.0 if $rh < 0.0;
 	$rh = 100.0 if $rh > 100.0;
+
 	return $rh;
 }
 
