@@ -1,42 +1,4 @@
-# DsRS41Tracker – végleges projekt-dokumentáció
-
-## 0. Alkalmazásverzió
-
-A teljes projekt egységes verziója:
-
-```text
-DsRS41Tracker 0.2.46
-```
-
-Ugyanezt a verziót használja:
-
-```text
-rs41_main.pl
-rs41_gui.pl
-rs41_tui.pl
-UI.glade ablakcím
-config.txt
-sondehub_upload.pl beépített software_version értéke
-SondeHub felé jelentett szoftververzió
-```
-
-A TUI belső verziója és `--version` kimenete:
-
-```text
-rs41_tui.pl 0.2.46
-```
-
-A TUI belső és megjelenített verziója egységesen `0.2.46`.
-
-A MAIN és GUI verziója szintén lekérdezhető:
-
-```bash
-./rs41_main.pl --version
-./rs41_gui.pl --version
-./rs41_tui.pl --version
-```
-
----
+# DsRS41Tracker 0.2.46 – dokumentáció
 
 ## 1. A projekt rendeltetése
 
@@ -56,32 +18,11 @@ A rendszer képes:
 - Curses alapú terminálos felületet biztosítani;
 - Bluetooth RFCOMM GPS-forrásból frissíteni a bázispozíciót;
 - SondeHub telemetria- és listener-adatokat feltölteni;
-- a bázis és a szonda között távolságot, irányt és emelkedési szöget
-  számítani;
-- a teljes feldolgozási és szolgáltatási folyamat-életciklust központilag
-  kezelni.
-
-A projekt dokumentált terminálos frontendverziója:
-
-```text
-rs41_tui.pl 0.2.46
-```
+- a bázis szonda távolságot, irányt és emelkedési szöget kiszámítani;
 
 A projekt jelenlegi alapbeállítása Debian-alapú Linux rendszerre készült,
 de a MAIN, GUI, TUI és a közös Perl-modulok belső folyamatkezelése
-alapvetően POSIX-mechanizmusokra épül:
-
-```text
-pipe
-fork
-POSIX::setsid
-exec
-STDIN/STDOUT
-fcntl O_NONBLOCK
-IO::Select
-waitpid
-jelzések
-```
+alapvetően POSIX-mechanizmusokra épül.
 
 A platformfüggő részek elkülönülnek:
 
@@ -92,7 +33,7 @@ pipeConnect.pl
 gps_bridge_bt.pl
     a Linux/BlueZ/RFCOMM Bluetooth GPS-réteg
 
-rs41_mod vagy más demodulátor
+rs41_mod vagy rs41_mod.py esetleg más demodulátor
     külön futtatható külső program
 
 config.txt
@@ -112,19 +53,16 @@ elérhetőségétől függ. A TUI hordozhatósága a Perl Curses/ncurses modult�
 
 A program legfontosabb szerkezeti döntései:
 
-1. A jelfeldolgozás és az üzleti logika a `rs41_main.pl` folyamatban van.
+1. A jelfeldolgozás és az alkalmazás logika a `rs41_main.pl` folyamatban van.
 2. A GUI és a TUI csak frontend, nem végez párhuzamos dekódolást.
 3. A main és a frontend kétirányú, soronkénti JSON IPC-vel kommunikál.
 4. A normál napló- és hibaüzenetek STDERR-en haladnak, nem az IPC-csatornán.
 5. Egyszerre csak egy FELV/WAV/RAW/JSON feldolgozási munkamenet futhat.
 6. A GUI és TUI tényleges beállítási állapotának tulajdonosa a main.
-7. A TUI nem olvassa közvetlenül a `config.txt` fájlt.
-8. A szolgáltatásokhoz nincs dsPipeBroker; a MAIN és a frontendek
-   közvetlen socket API helyett `pipeConnect.pl -R/-W` gyermekfolyamatokat
-   használnak.
+7. A TUI és GUI nem olvassa közvetlenül a `config.txt` fájlt.
+8. A pipeConnect.pl -R/-W` gyermekfolyamatokat használnak.
 9. A futás közbeni beállítások nem íródnak vissza a `config.txt` fájlba.
-10. A hiányos RS41 keretek nem törlik a korábban ismert megjelenítési
-    értékeket.
+10. A hiányos RS41 keretek részleges érték frissítést eredményeznek.
 
 ---
 
@@ -156,6 +94,11 @@ startGUI.sh
 startTUI.sh
     │
     ├── rs41_main.pl
+    │     ├── audio/fájl pipeline
+    │     ├── RS41 dekódolás fogadása
+    │     ├── statisztika és vektorszámítás
+    │     ├── Bluetooth GPS szolgáltatás
+    │     └── SondeHub szolgáltatás
     │
     └── rs41_tui.pl
           ├── Curses / ncurses
@@ -185,7 +128,7 @@ rs41_main.pl STDERR  ──────► launcher terminál
 frontend STDERR      ──────► launcher terminál
 ```
 
-A launcher Python része ellenőrzi, hogy az STDOUT-on érkező sor valódi JSON
+A launcher ellenőrzi, hogy az STDOUT-on érkező sor valódi JSON
 legyen. A `terminal` típusú IPC-üzeneteket nem továbbítja a másik
 folyamatnak, hanem formázva STDERR-re írja.
 
@@ -464,8 +407,7 @@ ugyanaz a program automatikusan kezeli.
 
 ### Dekódolási eredmény
 
-A mellékelt `RS41_MOD_PYTHON.md` mérési összefoglalója szerint az
-`rs41_mod.py` átlagosan körülbelül:
+Az `rs41_mod.py` átlagosan körülbelül:
 
 ```text
 12%
@@ -503,7 +445,7 @@ A `pipe_delay.pl` jelenlegi korlátja:
 
 ---
 
-## 5. Folyamat- és munkamenet-életciklus
+## 5. Folyamat- és munkamenet
 
 A main állapotai:
 
@@ -557,11 +499,11 @@ A TUI erre teljes fizikai képernyő-újrarajzolással reagál.
 
 ---
 
-## 6. ALKALMAZ és MENTÉS
+## 6. FRISSÍT és ALKALMAZ
 
 A projekt két külön beállítási műveletet használ.
 
-## 6.1 ALKALMAZ
+## 6.1 FRISSÍT
 
 IPC:
 
@@ -581,7 +523,7 @@ SondeHub MEGOSZTÁS állapot
 SondeHub MOBIL állapot
 ```
 
-Az ALKALMAZ:
+A FRISSÍT:
 
 - nem módosít audio- vagy szűrőparamétert;
 - nem módosít LOG mappát;
@@ -597,7 +539,7 @@ vezérlőcsatorna és a már megnyitott szolgáltatásablak. Csak a
 `sondehub_upload.pl` gyermekfolyamat, valamint annak STDIN/STDOUT pipe-ja
 cserélődik.
 
-## 6.2 MENTÉS
+## 6.2 ALKALMAZ
 
 IPC:
 
@@ -610,7 +552,7 @@ Az összes beállítást átadja a mainnek.
 Ha nincs aktív feldolgozás:
 
 ```text
-MENTÉS
+FRISSÍT
     → main beállításállapot frissítése
     → settings_state
 ```
@@ -618,7 +560,7 @@ MENTÉS
 Ha FELV/WAV/RAW/JSON feldolgozás fut:
 
 ```text
-MENTÉS
+FRISSÍT
     → aktuális mód és fájlútvonal megjegyzése
     → pipeline szabályos leállítása
     → összes beállítás alkalmazása
@@ -628,7 +570,7 @@ MENTÉS
 
 WAV, RAW és JSON esetén ugyanaz a fájl indul újra.
 
-Élő felvételnél új időbélyeges WAV/Rlog/Jlog fájlok készülnek.
+Élő felvételnél új időbélyeges WAV/Rlog/Jlog fájlok készülnek, ezzel az eddig megszerzett keretek is 0-ról indulnak újra!
 
 ## 6.3 Kompatibilitási üzenetek
 
@@ -902,9 +844,9 @@ A Glade főablak címe: `RS41 vevő GUI v0.2.46`. A `dsPGtkGUI.pm`:
 - WebKit térkép;
 - külön szolgáltatásterminál.
 
-## 11.3 GUI ALKALMAZ
+## 11.3 GUI Frissít
 
-Az ALKALMAZ gomb:
+Az Frissít gomb:
 
 ```text
 bázis latitude
@@ -919,16 +861,18 @@ mobile
 értékeket küldi `settings_apply_requested` üzenetben.
 
 A MEGOSZTÁS vagy MOBIL kapcsoló átváltása automatikusan meghívja
-ugyanezt az ALKALMAZ műveletet. A FELV/WAV/RAW/JSON pipeline nem indul
+ugyanezt az Frissít műveletet. A FELV/WAV/RAW/JSON pipeline nem indul
 újra, de aktív SondeHub szolgáltatásnál a MAIN automatikusan újraindítja a
 `sondehub_upload.pl` workerét. A kétirányú `pipeConnect.pl` csatorna és a
 szolgáltatásterminál közben megmarad.
 
-## 11.4 GUI MENTÉS
+## 11.4 GUI Alkalmaz
 
-A MENTÉS gomb az összes mezőt `settings_save_requested` üzenetben küldi.
+A Alkalmaz gomb az összes mezőt `settings_save_requested` üzenetben küldi.
 
 Aktív pipeline esetén a main ugyanazt a munkamenetet újraindítja.
+
+Fontos hogy élő vétel esetén új WAV / LOG állományok kezdődnek, és újra összekel gyűjteni az 51 kalibrációs keretet!
 
 ## 11.5 Mezők szerkeszthetősége
 
@@ -1020,12 +964,6 @@ A WebKit cache helye a projekt saját `cache` könyvtára.
 ---
 
 ## 13. Terminálos frontend
-
-A terminálos frontend:
-
-```text
-rs41_tui.pl 0.2.46
-```
 
 Technológia:
 
@@ -1251,27 +1189,31 @@ a terminálban.
 
 ---
 
-## 14. RS41 demodulátor
+## 14. RS41 demodulátorok
 
-A projekt tartalmazza az `rs41_mod` binárist.
-
-A csatolt példány:
+A projekt két RS41 GFSK demodulátort tartalmaz:
 
 ```text
-ELF 64-bit LSB PIE
-x86-64
-dinamikusan linkelt
-GNU/Linux
-méret: 114240 byte
+rs41_mod
+rs41_mod.py
 ```
 
-A main használata:
+Az `rs41_mod` a korábbi, x86-64 Linux bináris demodulátor. Az
+`rs41_mod.py` a projekt saját Python nyelvű RS41 GFSK demodulátora és
+Reed–Solomon keretjavítója.
+
+### 14.1 `rs41_mod`
+
+Eredeti forrás: https://github.com/rs1729/RS , a konkrét felhasznált verzió forrása az SRC mappán belül megtalálható!
+
+A main alapértelmezett használata:
 
 ```bash
 ./rs41_mod -vv -r -i /dev/stdin
 ```
 
-Az `-i` csak akkor kerül a parancsba, ha az `AUDIO_INVERT` be van kapcsolva.
+Az `-i` csak akkor kerül a parancsba, ha az `AUDIO_INVERT` be van
+kapcsolva.
 
 A demodulátor RAW hexadecimális keretsorokat ad a Perl dekódernek.
 
@@ -1281,6 +1223,108 @@ A binárisnak futtathatónak kell lennie:
 chmod +x rs41_mod
 ```
 
+Az `rs41_mod` továbbra is használható, de az `rs41_mod.py` miatt már nem
+kötelező projektfüggőség.
+
+### 14.2 `rs41_mod.py`
+
+Az `rs41_mod.py` a projekt saját RS41 GFSK demodulátora. WAV/PCM
+adatfolyamot olvas STDIN-ről, felismeri az RS41 kereteket, elvégzi a
+dewhitening műveletet, majd a két interleavelt RS(255,231)
+Reed–Solomon-kódszó hibajavítását.
+
+Kimenete a Perl dekóder által közvetlenül feldolgozható, soronként egy
+320 bájtos hexadecimális RS41 keret.
+
+A jelenlegi mérések alapján az `rs41_mod.py` azonos hangforrásból
+átlagosan körülbelül 12% több érvényes RS41 csomagot képes dekódolni, mint az eredeti rs41_mod`. A mért javulás a vételi körülményektől függően 6–18% .`
+
+A jobb dekódolási arány (illetve a Python használatának) ára:
+
+- lassabb feldolgozás;
+- nagyobb CPU-terhelés;
+- hosszabb teljes feldolgozási idő.
+
+### 14.3 Automatikus invertáltjel-felismerés
+
+Az `rs41_mod.py` automatikusan felismeri, hogy a bemeneti jel normál vagy
+invertált polaritású.
+
+Ezért `rs41_mod.py` használatakor:
+
+```text
+AUDIO_INVERT
+```
+
+beállításának nincs hatása. A Python demodulátor nem veszi figyelembe az
+invertált kapcsolót, mert minden keretnél automatikusan meghatározza a
+helyes polaritást.
+
+Az `rs41_mod.py` mellé nem kell megadni az eredeti `rs41_mod`
+parancssori kapcsolóit, tehát a `{MOD_ARGS}` helyettesítőt sem kell
+használni.
+
+### 14.4 Demodulátor kiválasztása a `config.txt` fájlban
+
+A projekt alapértelmezett pipeline-ja az eredeti bináris demodulátort
+használja:
+
+```text
+| {MOD_COMMAND} {MOD_ARGS} |
+```
+
+A MAIN beépített alapértékei:
+
+```text
+MOD_COMMAND:
+    ./rs41_mod
+
+MOD_ARGS:
+    -vv -r [-i] /dev/stdin
+```
+
+Ez az alapértelmezés akkor is érvényes, ha a `PIPE_RECORD` vagy
+`PIPE_WAV` configbejegyzés hiányzik, üres vagy kommentelt.
+
+Az `rs41_mod.py` használatához a `config.txt` fájlban a
+`PIPE_RECORD` és `PIPE_WAV` sorok demodulátorrészét erre kell cserélni:
+
+```text
+| ./rs41_mod.py |
+```
+
+Élő vételhez:
+
+```text
+PIPE_RECORD=arecord -D {AUDIO_DEVICE} -t wav -f S16_LE -r {AUDIO_SAMPLE_RATE} -c 1 -q | {FILTER_COMMAND} {FILTER_ARGS} | ./rs41_mod.py | tee -a {RLOG_FILE} | {DECODER} --json | tee -a {JLOG_FILE}
+```
+
+WAV-feldolgozáshoz:
+
+```text
+PIPE_WAV=sox -- {INPUT_FILE} -t wav -b 16 -e signed-integer -c 1 -r {AUDIO_SAMPLE_RATE} - | {FILTER_COMMAND} {FILTER_ARGS} | ./rs41_mod.py | {DECODER} --json
+```
+
+Fontos:
+
+```text
+rs41_mod:
+    | {MOD_COMMAND} {MOD_ARGS} |
+
+rs41_mod.py:
+    | ./rs41_mod.py |
+```
+
+Az `rs41_mod.py` sorában ne szerepeljen a `{MOD_ARGS}`, mert a Python
+demodulátor nem használja az eredeti bináris `-vv`, `-r`, `-i` és
+`/dev/stdin` argumentumait.
+
+A Python demodulátorhoz szükséges:
+
+```bash
+chmod +x rs41_mod.py
+sudo apt install python3 python3-numpy
+```
 ---
 
 ## 15. Audio-szűrés
@@ -2556,9 +2600,9 @@ A menüsornak és minden panelnek azonnal teljesen helyre kell állnia.
 
 ---
 
-## 30. Hibakeresés
+### 29.14 Hibakeresés
 
-### A GUI nem indul
+#### A GUI nem indul
 
 Ellenőrizd:
 
@@ -2571,7 +2615,7 @@ dsPGtkGUI.pm
 DISPLAY / grafikus munkamenet
 ```
 
-### A TUI nem indul
+#### A TUI nem indul
 
 Ellenőrizd:
 
@@ -2583,7 +2627,7 @@ RS41IPC.pm
 RS41FrontendData.pm
 ```
 
-### A menüsor eltűnik ÁLLJ után
+#### A menüsor eltűnik ÁLLJ után
 
 A 0.2.46 verzió `running_state=0` esetén `clearok()`, `touchwin()` és teljes
 újrarajzolást használ. Ellenőrizd:
@@ -2592,7 +2636,7 @@ A 0.2.46 verzió `running_state=0` esetén `clearok()`, `touchwin()` és teljes
 ./rs41_tui.pl --version
 ```
 
-### Nincs hang
+#### Nincs hang
 
 ```bash
 arecord -l
@@ -2600,7 +2644,7 @@ arecord -D default -t wav -f S16_LE -r 48000 -c 1 /tmp/test.wav
 aplay /tmp/test.wav
 ```
 
-### A szűrő leáll
+#### A szűrő leáll
 
 Ellenőrizd:
 
@@ -2614,7 +2658,7 @@ delay >= 0.1
 NumPy és SciPy telepítve
 ```
 
-### A WAV nem indul
+#### A WAV nem indul
 
 Ellenőrizd:
 
@@ -2624,7 +2668,7 @@ Ellenőrizd:
 - a fájl WAV formátumú;
 - a fájlútvonal nem tartalmaz sortörést vagy NUL-t.
 
-### RAW nem dekódolódik
+#### RAW nem dekódolódik
 
 Ellenőrizd:
 
@@ -2633,7 +2677,7 @@ Ellenőrizd:
 - a dekóder futtatható;
 - a fájl nem bináris.
 
-### Bluetooth nem indul
+#### Bluetooth nem indul
 
 Ellenőrizd:
 
@@ -2647,7 +2691,7 @@ GPS Bridge SDP szolgáltatás
 terminálos jelszóbevitel
 ```
 
-### SondeHub nem tölt fel
+#### SondeHub nem tölt fel
 
 Elsőként ellenőrizd, hogy a config nem localhost teszt URL-t használ-e.
 
@@ -2681,13 +2725,13 @@ HTTP státusz
 .Slog fájl
 ```
 
-### A távolság vagy irány eltűnik
+#### A távolság vagy irány eltűnik
 
 A main csak teljes, numerikus szondapozíciót fésül be. Ellenőrizd, hogy a
 futtatott `rs41_main.pl` a jelenlegi verzió, és nem egy régi másolat van a
 PATH-ban vagy más könyvtárban.
 
-### A szolgáltatásterminál nem nyílik meg
+#### A szolgáltatásterminál nem nyílik meg
 
 Ellenőrizd:
 
@@ -2699,75 +2743,7 @@ Ellenőrizd:
 
 ---
 
-## 30. POSIX és platformkompatibilitás
-
-## 30.1 POSIX-orientált alapkód
-
-```text
-rs41_main.pl
-rs41_gui.pl folyamat- és pipe-kezelése
-rs41_tui.pl folyamat- és pipe-kezelése
-RS41IPC.pm
-RS41FrontendData.pm
-dsPGtkGUI.pm alaplogikája
-terminal_service.pl
-sondehub_upload.pl
-pipe_delay.pl
-rs41_raw_decode_fixed_fields.pl
-```
-
-## 30.2 Elkülönített platformfüggő rétegek
-
-```text
-pipeConnect.pl
-    jelenleg Linux absztrakt UNIX socket
-
-gps_bridge_bt.pl
-    Linux BlueZ, bluetoothctl, rfcomm, systemctl és rfkill
-
-config.txt
-    hangrendszer-, PTY- és külső programparancsok
-
-rs41_mod / rs41_mod.py
-    külön platformra fordítandó vagy cserélendő demodulátor
-
-startGUI.sh / startTUI.sh
-    launcher és Python-környezet
-```
-
-## 30.3 GUI és TUI feltételek
-
-GUI:
-
-```text
-Gtk3
-Gtk3::WebKit2
-Glib
-támogatott terminálemulátor
-```
-
-TUI:
-
-```text
-Perl Curses / ncurses
-UTF-8 terminál
-az adott curses egérkezelése
-```
-
-## 30.4 Pontos állítás
-
-> A MAIN, GUI, TUI és a közös Perl-modulok belső IPC- és
-> folyamatkezelési alapja POSIX-orientált. A platformfüggő részek
-> elkülönítve a `pipeConnect.pl`, `gps_bridge_bt.pl`, külső demodulátorok,
-> launcherek és a `config.txt` parancssablonjai köré kerültek.
-
-Ez nem jelenti, hogy a teljes alkalmazás változtatás nélkül fut minden
-POSIX rendszeren. Az adott platformon biztosítani kell a szükséges
-GUI/TUI modulokat, hangrendszert, PTY-wrappert és külső programokat.
-
----
-
-## 31. Biztonsági és adatvédelmi megjegyzések
+## 30. Biztonsági és adatvédelmi megjegyzések
 
 - A Bluetooth worker `sudo` parancsokat használ.
 - A sudo jelszó a PTY terminálon kerül bekérésre.
@@ -2783,20 +2759,7 @@ GUI/TUI modulokat, hangrendszert, PTY-wrappert és külső programokat.
 
 ---
 
-## 32. Ismert platformkorlátok
-
-- A csatolt `rs41_mod` x86-64 Linux bináris.
-- Más CPU-architektúrán külön demodulátor-bináris szükséges.
-- A közvetlen szolgáltatáscsatorna Linux absztrakt UNIX socketet használ.
-- A hangfeldolgozás ALSA-eszközökre épül.
-- A GUI Gtk3/WebKit2GTK környezetet igényel.
-- A TUI ncurses-kompatibilis terminált igényel.
-- A térképcsempékhez hálózat kell, ha a tile szerver nem helyi.
-- A Bluetooth szolgáltatás a BlueZ parancssori eszközeit használja.
-
----
-
-## 33. Rövid referencia
+## 31. Rövid referencia
 
 ### Indítás
 
@@ -2862,7 +2825,7 @@ MENTÉS
 
 ---
 
-## 34. Összefoglalás
+## 32. Összefoglalás
 
 A DsRS41Tracker jelenlegi változata egy központi main folyamat köré épülő,
 kétfrontendes RS41 feldolgozó rendszer.
@@ -2889,3 +2852,4 @@ A SondeHub worker csak élő, VALID és teljes 51 keretes kalibrációjú teleme
 
 A TUI 0.2.46 teljes újrarajzolási mechanizmusa a popupok és a feldolgozási
 pipe lezárása után is helyreállítja a teljes képernyőt.
+

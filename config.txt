@@ -208,14 +208,16 @@ TRACK_POINT_RADIUS=2
 # Jelenlegi FILTER_ARGS: -LF {AUDIO_LF} -HF {AUDIO_HF} -O {AUDIO_ORDER} -P {AUDIO_PEAK} -D {AUDIO_DELAY} -V
 # Jelenlegi MOD_COMMAND: ./rs41_mod
 # Jelenlegi MOD_ARGS: -vv -r {AUDIO_INVERT_ARG} /dev/stdin
-PIPE_RECORD=arecord -D {AUDIO_DEVICE} -t wav -f S16_LE -r {AUDIO_SAMPLE_RATE} -c 1 -q | {FILTER_COMMAND} {FILTER_ARGS} | {MOD_COMMAND} {MOD_ARGS} | tee -a {RLOG_FILE} | {DECODER} --json | tee -a {JLOG_FILE}
+# PIPE_RECORD=arecord -D {AUDIO_DEVICE} -t wav -f S16_LE -r {AUDIO_SAMPLE_RATE} -c 1 -q | {FILTER_COMMAND} {FILTER_ARGS} | {MOD_COMMAND} {MOD_ARGS} | tee -a {RLOG_FILE} | {DECODER} --json | tee -a {JLOG_FILE}
+PIPE_RECORD=arecord -D {AUDIO_DEVICE} -t wav -f S16_LE -r {AUDIO_SAMPLE_RATE} -c 1 -q | {FILTER_COMMAND} {FILTER_ARGS} | ./rs41_mod.py | tee -a {RLOG_FILE} | {DECODER} --json | tee -a {JLOG_FILE}
 
 # WAV-fájl feldolgozása.
 # Jelenlegi FILTER_COMMAND: ./rs41_filter_stream.py
 # Jelenlegi FILTER_ARGS: -LF {AUDIO_LF} -HF {AUDIO_HF} -O {AUDIO_ORDER} -P {AUDIO_PEAK} -D {AUDIO_DELAY} -V
 # Jelenlegi MOD_COMMAND: ./rs41_mod
 # Jelenlegi MOD_ARGS: -vv -r {AUDIO_INVERT_ARG} /dev/stdin
-PIPE_WAV=sox -- {INPUT_FILE} -t wav -b 16 -e signed-integer -c 1 -r {AUDIO_SAMPLE_RATE} - | {FILTER_COMMAND} {FILTER_ARGS} | {MOD_COMMAND} {MOD_ARGS} | {DECODER} --json
+# PIPE_WAV=sox -- {INPUT_FILE} -t wav -b 16 -e signed-integer -c 1 -r {AUDIO_SAMPLE_RATE} - | {FILTER_COMMAND} {FILTER_ARGS} | {MOD_COMMAND} {MOD_ARGS} | {DECODER} --json
+PIPE_WAV=sox -- {INPUT_FILE} -t wav -b 16 -e signed-integer -c 1 -r {AUDIO_SAMPLE_RATE} - | {FILTER_COMMAND} {FILTER_ARGS} | ./rs41_mod.py | {DECODER} --json
 
 # Demodulátor-választás:
 # - A jelenlegi alapértelmezés {MOD_COMMAND} {MOD_ARGS}, vagyis ./rs41_mod.

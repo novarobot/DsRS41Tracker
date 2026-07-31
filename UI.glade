@@ -296,7 +296,7 @@
                     </child>
                     <child>
                       <object class="GtkButton" id="apply_base_button">
-                        <property name="label">Alkalmaz</property>
+                        <property name="label">Frissít</property>
                         <property name="visible">True</property>
                         <property name="can-focus">True</property>
                         <property name="receives-default">False</property>
@@ -680,7 +680,7 @@
                     </child>
                     <child>
                       <object class="GtkButton" id="save_filter_button">
-                        <property name="label">Mentés</property>
+                        <property name="label">Alkalmaz</property>
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
                         <property name="receives-default">False</property>
@@ -706,7 +706,7 @@
                     </child>
                     <child>
                       <object class="GtkButton" id="refresh_button">
-                        <property name="label">Frissítés</property>
+                        <property name="label">Újratölt</property>
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
                         <property name="receives-default">False</property>

@@ -1,54 +1,61 @@
 # DsRS41Tracker
-Linux-based RS41 radiosonde tracking, decoding and SondeHub upload application with a graphical interface.
 
-Linuxos RS41 rádiószonda-követő, dekódoló és SondeHub feltöltő alkalmazás grafikus felülettel.
+### EN
+Linux-based RS41 radiosonde tracking, decoding and SondeHub upload application that processes an audio source, is also compatible with the Quansheng / IJV 3.60 radio, and provides both graphical and console interfaces.
 
-![DsRS41Tracker screenshot](https://github.com/novarobot/DsRS41Tracker/blob/main/sample.png?raw=true)
+### HU
+Hang forrásból dolgozó Quansheng / IJV 3.60 rádióval (is) kompatibilis Linuxos RS41 rádiószonda-követő, dekódoló és SondeHub feltöltő alkalmazás grafikus és konzolos felülettel.
 
-## Tested hardware and software environment
+## GUI
+![DsRS41Tracker screenshot](https://github.com/novarobot/DsRS41Tracker/blob/main/sampleGUI.png?raw=true)
 
+## TUI
+![DsRS41Tracker screenshot](https://github.com/novarobot/DsRS41Tracker/blob/main/sampleTUI.png?raw=true)
+
+## Tested hardware and software environment /Tesztelt hardver- és szoftverkörnyezet
+
+### EN
 DsRS41Tracker was tested with a Quansheng UV-K5 radio running IJV 3.60 firmware in BPY mode under Debian 12.
 
-The radio was connected using the following wiring diagram:
+The radio was connected according to the following wiring diagram (the UART connection is optional):
 
-## Tesztelt hardver- és szoftverkörnyezet
-
+### HU
 A DsRS41Tracker szoftver Quansheng UV-K5 rádióval, IJV 3.60 firmware-rel, BPY módban, Debian 12 alatt lett tesztelve.
 
-A rádió csatlakoztatása az alábbi bekötés szerint történt:
+A rádió csatlakoztatása az alábbi bekötés szerint történt (az UART bekötése opcionális):
 
 ![Quansheng UV-K5 connection diagram](https://github.com/novarobot/DsRS41Tracker/blob/main/PinoutJACKfix.png?raw=true)
 
 ## English
 
-DsRS41Tracker is a Linux-based application for receiving, decoding, tracking and displaying Vaisala RS41 radiosonde telemetry.
+DsRS41Tracker is a Linux-based application for receiving, decoding, tracking and displaying telemetry data from Vaisala RS41 radiosondes.
 
-The project provides a graphical interface that controls the complete signal-processing chain, including audio capture, filtering, RS41 demodulation, raw-frame decoding and live telemetry display. The decoded radiosonde position and flight path are shown on an embedded map.
+The project's graphical interface controls the complete signal-processing chain, including audio recording, filtering, RS41 demodulation, raw-frame decoding and live telemetry display. The decoded radiosonde position and flight path are displayed on an embedded map.
 
-The application can also send decoded telemetry and receiver information to SondeHub. A separate Bluetooth GPS bridge can use an Android phone as a mobile base-position and orientation sensor.
+The application can also upload the decoded telemetry data and receiver-station data to SondeHub. With the separate Bluetooth GPS bridge, an Android phone can be used as a mobile base-position and orientation sensor.
 
 Main features:
 
-- live RS41 radiosonde reception from an ALSA audio input
-- WAV recording of the received signal
+- live reception of RS41 radiosondes from an ALSA audio input
+- recording of the received signal in WAV format
 - configurable real-time audio filtering
-- local `rs41_mod` demodulator integration
-- raw RS41 frame decoding and CRC validation
+- use of the local `rs41_mod` demodulator
+- decoding of raw RS41 frames and CRC checking
 - display of position, altitude, speed, direction and PTU data
 - interactive map with radiosonde track and base position
-- SondeHub telemetry and listener upload support
+- SondeHub telemetry and receiver-station upload
 - Bluetooth RFCOMM connection to the GPSBridge Android application
 - playback and processing of saved WAV, RAW and JSON logs
 - separate PRC and JSON diagnostic views
 - configurable receiver, antenna, audio and map settings
 
-The project is intended for Debian-based Linux systems and uses Perl, GTK3, WebKit2GTK, Python, ALSA and BlueZ.
+The project is intended primarily for Debian-based Linux systems and uses Perl, GTK3, WebKit2GTK, Python, ALSA and BlueZ components.
 
-## Author
+### Author
 
 **Bálint Juhász**  
 GitHub: `novarobot`  
-callsign: `HA0JSB`
+Callsign: `HA0JSB`
 
 ## Magyar
 
@@ -75,8 +82,9 @@ Főbb funkciók:
 
 A projekt elsősorban Debian-alapú Linux rendszerekhez készült, és Perl, GTK3, WebKit2GTK, Python, ALSA és BlueZ komponenseket használ.
 
-## Szerző
+### Szerző
 
 **Juhász Bálint**  
 GitHub: `novarobot`  
 Hívójel: `HA0JSB`
+
