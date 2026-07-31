@@ -1,9 +1,9 @@
 # DsRS41Tracker
 
-### EN
+### English / Angol
 Linux-based RS41 radiosonde tracking, decoding and SondeHub upload application that processes an audio source, is also compatible with the Quansheng / IJV 3.60 radio, and provides both graphical and console interfaces.
 
-### HU
+### Magyar / Hungarian
 Hang forrásból dolgozó Quansheng / IJV 3.60 rádióval (is) kompatibilis Linuxos RS41 rádiószonda-követő, dekódoló és SondeHub feltöltő alkalmazás grafikus és konzolos felülettel.
 
 ## GUI
@@ -12,21 +12,21 @@ Hang forrásból dolgozó Quansheng / IJV 3.60 rádióval (is) kompatibilis Linu
 ## TUI
 ![DsRS41Tracker screenshot](https://github.com/novarobot/DsRS41Tracker/blob/main/sampleTUI.png?raw=true)
 
-## Tested hardware and software environment /Tesztelt hardver- és szoftverkörnyezet
+## Tested hardware and software environment / Tesztelt hardver- és szoftverkörnyezet
 
-### EN
+### English / Angol
 DsRS41Tracker was tested with a Quansheng UV-K5 radio running IJV 3.60 firmware in BPY mode under Debian 12.
 
 The radio was connected according to the following wiring diagram (the UART connection is optional):
 
-### HU
+### Magyar / Hungarian
 A DsRS41Tracker szoftver Quansheng UV-K5 rádióval, IJV 3.60 firmware-rel, BPY módban, Debian 12 alatt lett tesztelve.
 
 A rádió csatlakoztatása az alábbi bekötés szerint történt (az UART bekötése opcionális):
 
 ![Quansheng UV-K5 connection diagram](https://github.com/novarobot/DsRS41Tracker/blob/main/PinoutJACKfix.png?raw=true)
 
-## English
+## English / Angol
 
 DsRS41Tracker is a Linux-based application for receiving, decoding, tracking and displaying telemetry data from Vaisala RS41 radiosondes.
 
@@ -57,7 +57,7 @@ The project is intended primarily for Debian-based Linux systems and uses Perl, 
 GitHub: `novarobot`  
 Callsign: `HA0JSB`
 
-## Magyar
+## Magyar / Hungarian
 
 A DsRS41Tracker egy Linux-alapú alkalmazás Vaisala RS41 rádiószondák telemetriaadatainak vételére, dekódolására, követésére és megjelenítésére.
 
