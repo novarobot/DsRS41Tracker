@@ -975,7 +975,18 @@ sub dispatch
 	}
 	elsif($t eq 'append_log')
 	{
-		append_log($m->{target},$m->{text});
+		#append_log($m->{target},$m->{text});
+
+		my $target=$m->{target}//'';
+		my $text=$m->{text}//'';
+
+		#append_log($target,$text)
+		#	if $target ne 'prc' || $text !~ /^SondeHub:/;
+
+		append_log($target,$text)
+			if $target ne 'prc'
+				|| $text !~ /^(?:BT|SondeHub):\s*/;
+
 	}
 	elsif($t eq 'clear_logs')
 	{

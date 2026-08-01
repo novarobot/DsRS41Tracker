@@ -49,6 +49,8 @@ my $selector = IO::Select->new();
 my %buffers;
 my $running = 1;
 my $mode = 'idle';
+my $stop_state;
+my $shutdown_requested = 0;
 
 my ($current_file, $current_rlog, $current_jlog, $description);
 my ($current_session_kind, $current_session_path);
@@ -596,17 +598,15 @@ sub restart_current_session
 {
 	return 0 if !processing_session_is_running();
 
-	my $kind = $current_session_kind;
-	my $path = $current_session_path;
+	log_gui(
+		'prc',
+		"A beállítások mentve; az aktív munkamenet leállítása "
+		. "után kézzel indítható újra.\n"
+	);
 
 	stop_pipeline();
 
-	if ($kind eq 'record')
-	{
-		return start_session('record');
-	}
-
-	return start_session($kind, $path);
+	return 1;
 }
 
 sub validate
@@ -973,6 +973,182 @@ sub process_is_alive
 	return kill(0, $pid) ? 1 : 0;
 }
 
+sub process_group_is_alive
+{
+	my ($pid) = @_;
+
+	return 0 if !defined($pid) || $pid <= 0;
+
+	return kill(0, -$pid) ? 1 : 0;
+}
+
+sub reap_process_leader
+{
+	my ($pid) = @_;
+
+	return 1 if !defined($pid) || $pid <= 0;
+
+	my $result = waitpid($pid, WNOHANG);
+
+	return 1 if $result == $pid || $result == -1;
+	return 0;
+}
+
+sub send_stopping_state
+{
+	my ($description) = @_;
+
+	send_gui(
+		{
+			type        => 'running_state',
+			running     => 1,
+			description => $description
+		}
+	);
+
+	return;
+}
+
+sub finalize_pipeline_stop
+{
+	my (%option) = @_;
+
+	detach_processor_output();
+
+	$processor_pid = undef;
+	$recorder_pid = undef;
+	$stop_state = undef;
+	$mode = 'idle';
+
+	send_gui(
+		{
+			type    => 'running_state',
+			running => 0
+		}
+	);
+
+	if (defined($option{message}) && $option{message} ne '')
+	{
+		log_gui('prc', $option{message} . "\n");
+	}
+
+	return;
+}
+
+sub force_pipeline_stop
+{
+	return if ref($stop_state) ne 'HASH';
+
+	for my $pid (
+		$stop_state->{processor_pid},
+		$stop_state->{recorder_pid}
+	)
+	{
+		next if !defined($pid) || $pid <= 0;
+		kill('KILL', -$pid);
+	}
+
+	$stop_state->{phase} = 'kill';
+	$stop_state->{deadline} = time() + 1.0;
+
+	send_stopping_state('Kényszerített leállítás folyamatban...');
+
+	return;
+}
+
+sub poll_pipeline_stop
+{
+	return if ref($stop_state) ne 'HASH';
+
+	my $old_processor_pid = $stop_state->{processor_pid};
+	my $old_recorder_pid = $stop_state->{recorder_pid};
+
+	$stop_state->{processor_reaped} = reap_process_leader($old_processor_pid)
+		if !$stop_state->{processor_reaped};
+
+	$stop_state->{recorder_reaped} = reap_process_leader($old_recorder_pid)
+		if !$stop_state->{recorder_reaped};
+
+	my $processor_alive = process_group_is_alive($old_processor_pid);
+	my $recorder_alive = process_group_is_alive($old_recorder_pid);
+
+	if (!$processor_alive && !$recorder_alive)
+	{
+		finalize_pipeline_stop(
+			message => $stop_state->{message}
+		);
+		return;
+	}
+
+	return if time() < $stop_state->{deadline};
+
+	if ($stop_state->{phase} eq 'term')
+	{
+		force_pipeline_stop();
+		return;
+	}
+
+	for my $pid ($old_processor_pid, $old_recorder_pid)
+	{
+		next if !defined($pid) || $pid <= 0;
+		kill('KILL', -$pid);
+	}
+
+	$stop_state->{deadline} = time() + 1.0;
+
+	terminal_message(
+		'ERR',
+		'A háttérfolyamat még SIGKILL után is fut; '
+		. 'a MAIN továbbra is vár a tényleges leállásra.'
+	);
+
+	return;
+}
+
+sub begin_pipeline_stop
+{
+	my (%option) = @_;
+
+	return 0 if $mode eq 'idle' && !$processor_pid && !$recorder_pid
+		&& !defined($processor_out);
+
+	if (ref($stop_state) eq 'HASH')
+	{
+		force_pipeline_stop();
+		return 1;
+	}
+
+	$stop_state =
+	{
+		phase              => 'term',
+		deadline           => time() + 2.0,
+		processor_pid      => $processor_pid,
+		recorder_pid       => $recorder_pid,
+		processor_reaped   => 0,
+		recorder_reaped    => 0,
+		message            => $option{message}
+	};
+
+	$mode = 'stopping';
+
+	detach_processor_output();
+
+	for my $pid (
+		$stop_state->{processor_pid},
+		$stop_state->{recorder_pid}
+	)
+	{
+		next if !defined($pid) || $pid <= 0;
+		kill('TERM', -$pid);
+	}
+
+	send_stopping_state('Leállítás folyamatban...');
+
+	poll_pipeline_stop();
+
+	return 1;
+}
+
 sub terminate_process_group
 {
 	my ($pid, $grace_seconds) = @_;
@@ -988,17 +1164,22 @@ sub terminate_process_group
 
 	while (time() < $deadline)
 	{
-		my $result = waitpid($pid, WNOHANG);
-
-		return if $result == $pid || $result == -1;
+		reap_process_leader($pid);
+		return if !process_group_is_alive($pid);
 		sleep(0.05);
 	}
 
-	# A processzvezető időközben kiléphet úgy, hogy a pipeline valamelyik
-	# tagja még ugyanabban a folyamatcsoportban fut. Ezért a KILL jelzést
-	# a teljes csoportra feltétel nélkül megpróbáljuk elküldeni.
 	kill('KILL', -$pid);
-	waitpid($pid, 0);
+
+	$deadline = time() + 1.0;
+
+	while (time() < $deadline)
+	{
+		reap_process_leader($pid);
+		return if !process_group_is_alive($pid);
+		sleep(0.05);
+	}
+
 	return;
 }
 
@@ -1009,45 +1190,9 @@ sub finish_pipeline
 	return if $mode eq 'idle' && !$processor_pid && !$recorder_pid
 		&& !defined($processor_out);
 
-	my $old_processor_pid = $processor_pid;
-	my $old_recorder_pid = $recorder_pid;
-
-	$mode = 'stopping';
-	$processor_pid = undef;
-	$recorder_pid = undef;
-
-	detach_processor_output();
-
-	if ($option{terminate})
-	{
-		terminate_process_group($old_processor_pid, 2.0);
-		terminate_process_group($old_recorder_pid, 2.0);
-	}
-	else
-	{
-		if (defined($old_processor_pid) && $old_processor_pid > 0)
-		{
-			terminate_process_group($old_processor_pid, 0.5);
-		}
-
-		if (defined($old_recorder_pid) && $old_recorder_pid > 0)
-		{
-			terminate_process_group($old_recorder_pid, 2.0);
-		}
-	}
-
-	$mode = 'idle';
-
-	send_gui(
-		{
-			type    => 'running_state',
-			running => 0
-		});
-
-	if (defined($option{message}) && $option{message} ne '')
-	{
-		log_gui('prc', $option{message} . "\n");
-	}
+	begin_pipeline_stop(
+		message => $option{message}
+	);
 
 	return;
 }
@@ -1239,7 +1384,11 @@ sub stop_pipeline
 	return if $mode eq 'idle' && !$processor_pid && !$recorder_pid
 		&& !defined($processor_out);
 
-	return if $mode eq 'stopping';
+	if ($mode eq 'stopping')
+	{
+		force_pipeline_stop();
+		return;
+	}
 
 	finish_pipeline(
 		terminate => 1,
@@ -2285,17 +2434,22 @@ sub lines_from
 
 sub shutdown_all
 {
+	$shutdown_requested = 1;
+
 	stop_pipeline();
 	stop_bt();
 	stop_sondehub();
 
-	send_gui(
-		{
-			type => 'shutdown'
-		}
-	);
+	if ($mode eq 'idle')
+	{
+		send_gui(
+			{
+				type => 'shutdown'
+			}
+		);
 
-	$running = 0;
+		$running = 0;
+	}
 
 	return;
 }
@@ -2361,6 +2515,20 @@ while ($running)
 		}
 	}
 
+	poll_pipeline_stop();
+
+	if ($shutdown_requested && $mode eq 'idle')
+	{
+		send_gui(
+			{
+				type => 'shutdown'
+			}
+		);
+
+		$running = 0;
+		next;
+	}
+
 	if ($mode ne 'idle')
 	{
 		send_stats();
@@ -2378,7 +2546,9 @@ while ($running)
 		}
 	}
 
-	if ($processor_pid && waitpid($processor_pid, WNOHANG) == $processor_pid)
+	if ($mode ne 'stopping'
+		&& $processor_pid
+		&& waitpid($processor_pid, WNOHANG) == $processor_pid)
 	{
 		finish_pipeline(
 			terminate => 0,
@@ -2386,7 +2556,9 @@ while ($running)
 		);
 	}
 
-	if ($recorder_pid && waitpid($recorder_pid, WNOHANG) == $recorder_pid)
+	if ($mode ne 'stopping'
+		&& $recorder_pid
+		&& waitpid($recorder_pid, WNOHANG) == $recorder_pid)
 	{
 		$recorder_pid = undef;
 	}

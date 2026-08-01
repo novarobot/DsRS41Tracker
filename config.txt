@@ -21,12 +21,12 @@ DSRS41TRACKER_VERSION=0.2.46
 
 # A hivatalos SondeHUB API végpontok. Helyi teszthez például:
 # A szondatelemetria HTTP PUT végpontja. A SONDEHUB_API_URL környezeti változó felülírhatja.
-SONDEHUB_TELEMETRY_API_URL=http://127.0.0.1:8080/sondes/telemetry
-#SONDEHUB_TELEMETRY_API_URL=https://api.v2.sondehub.org/sondes/telemetry
+#SONDEHUB_TELEMETRY_API_URL=http://127.0.0.1:8080/sondes/telemetry
+SONDEHUB_TELEMETRY_API_URL=https://api.v2.sondehub.org/sondes/telemetry
 
 # A vevő/listener adatok HTTP PUT végpontja. A SONDEHUB_LISTENER_API_URL környezeti változó felülírhatja.
-SONDEHUB_LISTENER_API_URL=http://127.0.0.1:8080/listeners
-#SONDEHUB_LISTENER_API_URL=https://api.v2.sondehub.org/listeners
+#SONDEHUB_LISTENER_API_URL=http://127.0.0.1:8080/listeners
+SONDEHUB_LISTENER_API_URL=https://api.v2.sondehub.org/listeners
 
 
 # A SondeHub felé jelentett szoftvernév.
@@ -75,13 +75,13 @@ SONDEHUB_SHARE=1
 SONDEHUB_FREQUENCY_MHZ=403.700
 
 # A telemetriacsomagok kötegelt feltöltési időköze másodpercben; minimum 1.
-SONDEHUB_TELEMETRY_INTERVAL_S=30
+SONDEHUB_TELEMETRY_INTERVAL_S=14
 
 # Fix bázis normál listener-frissítési időköze másodpercben; minimum 30.
 #SONDEHUB_FIXED_BASE_INTERVAL_S=21600
 
 # Mobil bázis normál listener-frissítési időköze másodpercben; minimum 30.
-SONDEHUB_MOBILE_BASE_INTERVAL_S=60
+SONDEHUB_MOBILE_BASE_INTERVAL_S=120
 
 # Két bázisfeltöltési kísérlet minimális időköze másodpercben; minimum 30.
 SONDEHUB_BASE_MIN_INTERVAL_S=30
