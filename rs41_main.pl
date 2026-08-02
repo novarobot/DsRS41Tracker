@@ -880,14 +880,15 @@ sub process_data
 				alt => $position->{altitude_m}
 			};
 
-			if (!defined($peak_alt)
-				|| $position->{altitude_m} > $peak_alt)
+			if ($validity eq 'VALID'
+				&& (!defined($peak_alt)
+					|| $position->{altitude_m} > $peak_alt))
 			{
 				$peak_alt = $position->{altitude_m};
 
 				$peak_time = ref($data->{gps_time}) eq 'HASH'
 						? $data->{gps_time}{utc_uncorrected}
-						: strftime('%Y-%m-%d %H:%M:%S', localtime());
+						: '?';
 			}
 		}
 	}
@@ -2019,10 +2020,6 @@ sub process_service_worker_line
 				send_sondehub_base() if ref($service_pipe{sondehub}) eq 'HASH';
 			}
 		}
-	}
-	elsif ($line ne '')
-	{
-		log_gui('prc', "SondeHub: $line\n");
 	}
 	return;
 }
